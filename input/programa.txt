@@ -1,18 +1,18 @@
-int funcion(int param, double otroparam);
+int x = 5;
+int y = 4 + x * 10;
+int a, b, c, d, e;
 
-for (int x, y, z; x + 10 < 100; x++, --y){
-    funcion(y);
+if (a) {
+    x = a;
 }
-for(var = 3, otravar = 5;;);
 
-int test = 10, test2 = 20;
+while (a) {
+    x = a;
+    y = 10;
+    while (x)
+        x = x;
+}
 
-int funcion(int param){
-    if (param > 10){
-        return param * 2;
-    } else {
-        while (param < 10){
-            param = param + 1;
-        }
-    }
+for (y = 0; y < 10; ++y) {
+    x = 0;
 }

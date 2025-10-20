@@ -13,7 +13,7 @@ from Escucha import Escucha
 
 def main(argv):
     # archivo = "input/programa.txt"
-    archivo = "input/simple.txt"
+    archivo = "input/programa.txt"
     if len(argv) > 1 :
         archivo = argv[1]
     input = FileStream(archivo)

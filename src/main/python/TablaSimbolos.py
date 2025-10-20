@@ -8,7 +8,7 @@ class TablaSimbolos :
         if cls._instance is None:
             cls._instance = super(TablaSimbolos, cls).__new__(cls)
             cls._instance.contextos = [] #lista de contextos
-            cls._instance.addConexto() #para tener el contexto 0
+            cls._instance.addContexto() #para tener el contexto 0
         return cls._instance #retorna la unica instancia si ya existe
     
     def addContexto(self):
