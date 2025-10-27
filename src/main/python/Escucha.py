@@ -5,7 +5,35 @@ from compiladorListener import compiladorListener
 from TablaSimbolos import TablaSimbolos
 from ID import ID
 
-class Escucha (compiladorListener) :
+class Escucha (compiladorListener):
+    def _procesarListaVar(self, ctx_listavar, tipo_dato):
+        contexto_actual = len(self.ts.contextos) - 1
+        indent_str = "  " * self.indent
+
+        if ctx_listavar.getChildCount() == 0:
+            return
+
+        nombre_var = ctx_listavar.ID().getText()
+        inic = ctx_listavar.inic()
+
+        nuevo_id = ID(nombre_var, tipo_dato)
+
+        if inic.getChildCount() > 0:
+            nuevo_id.setInicializado(True)
+            print(f"{indent_str}Variable adicional: {nombre_var} (inicializada)")
+        else:
+            print(f"{indent_str}Variable adicional: {nombre_var} (sin inicializar)")
+
+        try:
+            self.ts.contextos[-1].addSimbolo(nuevo_id)
+            print(f"{indent_str}'{nombre_var}' agregado al contexto {contexto_actual}")
+        except ValueError:
+            print(f"{indent_str}Error: variable '{nombre_var}' ya declarada en contexto {contexto_actual}")
+
+        siguiente = ctx_listavar.listavar()
+        if siguiente is not None:
+            self._procesarListaVar(siguiente, tipo_dato)
+
     indent = 1
     declaracion = 0
     profundidad = 0
@@ -13,8 +41,7 @@ class Escucha (compiladorListener) :
     
     def __init__(self):
         super().__init__()
-        self.ts = TablaSimbolos() #instacia singleton
-        #el constructor de TablaSimbolos crea el contexto 0
+        self.ts = TablaSimbolos()  # instancia singleton
     
     
     #=========
@@ -23,30 +50,54 @@ class Escucha (compiladorListener) :
     def enterBloque(self, ctx:compiladorParser.BloqueContext):
         print("  "*self.indent + "Nuevo bloque, se crea contexto")
         self.indent += 1
-        self.ts.addContexto() #agrega un nuevo contexto
+        self.ts.addContexto()
+
     def exitBloque(self, ctx:compiladorParser.BloqueContext):
         self.indent -= 1
         print("  "*self.indent + "Fin bloque, se elimina contexto")
-        self.ts.delContexto() #elimina el contexto actual
+        self.ts.delContexto()
     
     
     #=============
-    #Declaraciones INCOMPLETO
+    #Declaraciones
     #=============
     def enterDeclaracion(self, ctx:compiladorParser.DeclaracionContext):
         self.declaracion += 1
-        print("Declaracion ENTER -> |" + ctx.getText() + "|")
-        print("  -- Cant. hijos = " + str(ctx.getChildCount()))
     
     def exitDeclaracion(self, ctx:compiladorParser.DeclaracionContext):
-        print("Declaracion EXIT  -> |" + ctx.getText() + "|")
-        print("  -- Cant. hijos = " + str(ctx.getChildCount()))
-    
-    
-    
+        tipo_dato = ctx.tipo().getText()
+        contexto_actual = len(self.ts.contextos) - 1
+        indent_str = "  " * self.indent
 
+        print(f"{indent_str}Declaracion detectada de tipo {tipo_dato} en contexto {contexto_actual}")
+        
+        # Variable principal (la primera que de declara en una lista de declaraciones) int A, b, c , d
+        nombre_principal = ctx.ID().getText()
+        inic_principal = ctx.inic()
+        
+        id_principal = ID(nombre_principal, tipo_dato)
+        
+        if inic_principal.getChildCount() > 0:
+            id_principal.setInicializado(True)
+            print(f"{indent_str}Variable principal: {nombre_principal} (inicializada)")
+        else:
+            print(f"{indent_str}Variable principal: {nombre_principal} (sin inicializar)")
 
-    #mensajes cuando entra a distintas cosas para mayor claridad
+        try:
+            self.ts.contextos[-1].addSimbolo(id_principal)
+            print(f"{indent_str}'{nombre_principal}' agregado al contexto {contexto_actual}")
+        except ValueError:
+            print(f"{indent_str}Error: variable '{nombre_principal}' ya declarada en contexto {contexto_actual}")
+
+        # Variables adicionales (las otras despues de la primera que se declara) int a, B, C, D
+        lista = ctx.listavar()
+        if lista is not None:
+            self._procesarListaVar(lista, tipo_dato)
+    
+    
+    #===================
+    # Estructuras de control
+    #===================
     def enterPrograma(self, ctx:compiladorParser.ProgramaContext):
         print("Comienza el parsing")
 
@@ -63,28 +114,26 @@ class Escucha (compiladorListener) :
         
     def enterIif(self, ctx:compiladorParser.IifContext):
         print("  "*self.indent + "Comienza if")
-        self.indentr += 1
+        self.indent += 1
 
     def exitIif(self, ctx:compiladorParser.IifContext):
         self.indent -= 1
         print("  "*self.indent + "Fin if")
-        
-
 
     
+    #==============
+    # ListaVar debug
+    #==============
     def enterListavar(self, ctx:compiladorParser.ListavarContext):
         self.profundidad += 1
 
     def exitListavar(self, ctx:compiladorParser.ListavarContext):
-        print("  -- ListaVar(%d) Cant. hijos  = %d" % (self.profundidad, ctx.getChildCount()))
+        indent_str = "  " * self.indent
+        print(f"{indent_str}-- ListaVar({self.profundidad}) Cant. hijos = {ctx.getChildCount()}")
         self.profundidad -= 1
-        if ctx.getChildCount() == 4 :
-            print("      hoja ID --> |%s|" % ctx.getChild(1).getText())
+        if ctx.getChildCount() == 4:
+            print(f"{indent_str}  hoja ID --> |{ctx.getChild(1).getText()}|")
 
-    # def visitTerminal(self, node: TerminalNode):
-    #     print(" ---> Token: " + node.getText())
-        # self.numTokens += 1
-    
     def visitErrorNode(self, node: ErrorNode):
         print(" ---> ERROR")
         
@@ -92,5 +141,4 @@ class Escucha (compiladorListener) :
         self.numNodos += 1
     
     def __str__(self):
-        return "Se hicieron " + str(self.declaracion) + " declaraciones\n" + \
-                "Se visitaron " + str(self.numNodos) + " nodos"
+        return f"Se hicieron {self.declaracion} declaraciones\nSe visitaron {self.numNodos} nodos"

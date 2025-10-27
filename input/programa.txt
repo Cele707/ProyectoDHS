@@ -1,12 +1,15 @@
 int x = 5;
 int y = 4 + x * 10;
-int a, b, c, d, e;
+int a, b, c = 5, d, e;
+int d;
+
 
 if (a) {
     x = a;
 }
 
 while (a) {
+    int j;
     x = a;
     y = 10;
     while (x)
