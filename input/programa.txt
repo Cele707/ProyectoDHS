@@ -4,6 +4,7 @@ int a=0, x;
 int b=4;  
 double doble = 3;  
 int entero = 2;
+hola prueba;
 int c;
 	while (a == 0 && z == 0) { 
 		if (b < 10) {
