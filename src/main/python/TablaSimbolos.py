@@ -13,8 +13,9 @@ class TablaSimbolos :
     
     def addContexto(self):
         #agrega un nuevo contexto a la pila
-        self.contextos.append(Contexto())
-        return Contexto()
+        nuevo = Contexto()
+        nuevo = self.contextos.append(nuevo)
+        return nuevo
     
     
     def delContexto(self): #elimina el ultimo contexto, no se puede eliminar el contexto 0
@@ -25,8 +26,8 @@ class TablaSimbolos :
             raise ValueError("No se puede eliminar el contexto global")
     
     def addSimbolo(self, id_obj: ID):
-        #agrega un simbolo en el contexto actual
-        self.contextos[-1].addSimbolo(id_obj)
+        #agrega una variable en el contexto actual
+        self.contextos[-1].addSimbolo(id_obj)# con -1 se accede al ultimo de la lista
         
     def buscarSimbolo(self, nombre):
         #busca un simbolo en los contextos, empezando por el mas interno

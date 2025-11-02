@@ -3,19 +3,8 @@ int y = 4 + x * 10;
 int a, b, c = 5, d, e;
 int d;
 
-
-if (a) {
-    x = a;
-}
-
-while (a) {
-    int j;
-    x = a;
-    y = 10;
-    while (x)
-        x = x;
-}
-
-for (y = 0; y < 10; ++y) {
-    x = 0;
+while(a){
+    int x;
+    x = c;
+    b = d;
 }
