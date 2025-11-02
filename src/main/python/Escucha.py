@@ -1,192 +1,213 @@
-from antlr4 import TerminalNode, ErrorNode
 from compiladorParser import compiladorParser
 from compiladorListener import compiladorListener
 from TablaSimbolos import TablaSimbolos
-from ID import ID
+from ID import Variable, Funcion
+
 
 class Escucha(compiladorListener):
-    # Clase que escucha los eventos del parser y construye la tabla de simbolos mientras detecta errores
-
-    indent = 1
-    declaracion = 0
-    numNodos = 0
-    huboErrores = False
-
     def __init__(self):
-        super().__init__()
-        self.ts = TablaSimbolos()  # instancia de la tabla de simbolos singleton
-        self.erroresRegistrados = set()  # set para evitar errores duplicados
+        self.ts = TablaSimbolos()  # Singleton
+        self.huboErrores = False
+        self.indent = 0  # Nivel de sangría para los prints
 
-    # ----------------------------
-    # Utilidad
-    # ----------------------------
-    def registrarError(self, tipo, msj):
-        if msj not in self.erroresRegistrados:
-            self.erroresRegistrados.add(msj)
-            self.huboErrores = True
-            print(f"ERROR {tipo}: {msj}")
-
-    def _usarID(self, nombre):
-        simbolo = None
-        for contexto in reversed(self.ts.contextos):
-            if nombre in contexto.simbolos:
-                simbolo = contexto.simbolos[nombre]
-                break
-
-        if simbolo is None:
-            self.registrarError("semantico", f"'{nombre}' no declarado")
-        else:
-            simbolo.setUsado(True)
-            if not simbolo.getInicializado():
-                self.registrarError("semantico", f"'{nombre}' usado sin inicializar")
-
-    # ----------------------------
+    # -----------------------------
     # Contextos
-    # ----------------------------
-    def enterBloque(self, ctx: compiladorParser.BloqueContext):
+    # -----------------------------
+    def enterPrograma(self, ctx: compiladorParser.ProgramaContext):
         self.ts.addContexto()
+        print("Comienza el parsing\n--- ANALISIS SEMANTICO ---")
 
-    def exitBloque(self, ctx: compiladorParser.BloqueContext):
-        self.ts.delContexto()
-
-    # ----------------------------
-    # Declaraciones
-    # ----------------------------
-    def enterDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
-        self.declaracion += 1
-
-    def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
-        tipo_dato = ctx.tipo().getText()
-        nombre_principal = ctx.ID().getText()
-        inic_principal = ctx.inic()
-        id_principal = ID(nombre_principal, tipo_dato)
-
-        if inic_principal.getChildCount() > 0:
-            id_principal.setInicializado(True)
-            self._recorrerExp(inic_principal.opal())
+    def exitPrograma(self, ctx: compiladorParser.ProgramaContext):
+        hay_advertencias = False
+        for contexto in self.ts.contextos:
+            for nombre, var in contexto.simbolos.items():
+                if isinstance(var, Variable) and not var.getUsado():
+                    if not hay_advertencias:
+                        print("\n--- ADVERTENCIA ---")
+                        hay_advertencias = True
+                    print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada")
+        if self.huboErrores:
+            print("[INFO]: No se puede generar tabla de símbolos debido a errores")
         else:
-            id_principal.setInicializado(False)
+            print("[INFO]: Tabla de símbolos final:")
+            self.ts.imprimirTS()
+        print("[INFO]: Fin del parsing")
 
-        try:
-            self.ts.contextos[-1].addSimbolo(id_principal)
-        except ValueError:
-            self.registrarError("semantico", f"'{nombre_principal}' ya declarado en contexto actual")
+    # -----------------------------
+    # Declaraciones
+    # -----------------------------
+    def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
+        tipo = ctx.tipo().getText()
+        ids = [ctx.ID().getText()]
 
-        lista = ctx.listavar()
-        if lista is not None:
-            self._procesarListaVar(lista, tipo_dato)
+        def recolectar_listavar(lv, acumulador):
+            if lv is not None and lv.ID() is not None:
+                acumulador.append(lv.ID().getText())
+                recolectar_listavar(lv.listavar(), acumulador)
 
-    def _procesarListaVar(self, ctx_listavar, tipo_dato):
-        if ctx_listavar.getChildCount() == 0:
+        recolectar_listavar(ctx.listavar(), ids)
+
+        for nombre in ids:
+            if self.ts.buscarSimboloContexto(nombre):
+                self.registrarError("semantico", f"'{nombre}' ya declarado en contexto actual")
+            else:
+                var = Variable(nombre, tipo)
+                if ctx.inic() and ctx.inic().getChildCount() > 0:
+                    var.setInicializado(True)
+                self.ts.addSimbolo(var)
+                print(" " * self.indent + f"[INFO]: Se agregó la variable '{nombre}' de tipo '{tipo}'")
+
+    # -----------------------------
+    # Asignaciones
+    # -----------------------------
+    def exitAsignacion(self, ctx: compiladorParser.AsignacionContext):
+        exp_asig_ctx = ctx.expASIG()
+        if exp_asig_ctx is None:
             return
 
-        nombre_var = ctx_listavar.ID().getText()
-        inic = ctx_listavar.inic()
-        nuevo_id = ID(nombre_var, tipo_dato)
-        nuevo_id.setInicializado(inic.getChildCount() > 0)
+        nombre = exp_asig_ctx.ID().getText()
+        valor_ctx = exp_asig_ctx.opal()
 
-        try:
-            self.ts.contextos[-1].addSimbolo(nuevo_id)
-        except ValueError:
-            self.registrarError("semantico", f"'{nombre_var}' ya declarado en contexto actual")
-
-        siguiente = ctx_listavar.listavar()
-        if siguiente is not None:
-            self._procesarListaVar(siguiente, tipo_dato)
-
-    # ----------------------------
-    # Asignaciones y uso de IDs
-    # ----------------------------
-    def exitExpASIG(self, ctx):
-        nombre = ctx.ID().getText()
         simbolo = self.ts.buscarSimbolo(nombre)
         if simbolo is None:
-            self.registrarError("semantico", f"'{nombre}' no declarado")
-        else:
-            simbolo.setInicializado(True)
-            simbolo.setUsado(True)
+            self.registrarError("semantico", f"'{nombre}' usado sin declarar")
+            return
 
-        self._recorrerExp(ctx.opal())
+        tipo_destino = simbolo.getTipoDato()
+        tipo_valor = self._tipoExp(valor_ctx)
 
-    def _recorrerExp(self, ctx):
+        if tipo_valor and tipo_destino != tipo_valor:
+            self.registrarError("semantico",
+                            f"Asignación incompatible: '{nombre}' es {tipo_destino} y se intenta asignar {tipo_valor}")
+
+        simbolo.setInicializado(True)
+        simbolo.setUsado(True)
+        print(" " * self.indent + f"[INFO]: Asignación realizada: '{nombre}' inicializado y usado")
+
+    # -----------------------------
+    # Uso de variables en expresiones
+    # -----------------------------
+    def exitFactor(self, ctx: compiladorParser.FactorContext):
+        if ctx.ID():
+            nombre = ctx.ID().getText()
+            simbolo = self.ts.buscarSimbolo(nombre)
+            if simbolo is None:
+                self.registrarError("semantico", f"'{nombre}' usado sin declarar")
+            else:
+                simbolo.setUsado(True)
+                if not simbolo.getInicializado():
+                    self.registrarError("semantico", f"'{nombre}' usado sin inicializar")
+                print(" " * self.indent + f"[INFO]: Uso de variable '{nombre}' detectado")
+
+    # -----------------------------
+    # Evaluación de tipos de expresiones
+    # -----------------------------
+    def _tipoExp(self, ctx):
         if ctx is None:
-            return
+            return None
 
-        #si es un nodo terminal (leaf) y es un ID
-        if isinstance(ctx, TerminalNode) and ctx.getSymbol().type == compiladorParser.ID:
-            nombre = ctx.getText()
-            self._usarID(nombre)
-            return
+        if hasattr(ctx, 'ID') and ctx.ID():
+            nombre = ctx.ID().getText()
+            var = self.ts.buscarSimbolo(nombre)
+            if var:
+                var.setUsado(True)
+                if not var.getInicializado():
+                    self.registrarError("semantico", f"'{nombre}' usado sin inicializar")
+                return var.getTipoDato()
+            else:
+                self.registrarError("semantico", f"'{nombre}' usado sin declarar")
+                return None
 
-        #si no es terminal, recorrer hijos
+        if hasattr(ctx, 'NUM') and ctx.NUM():
+            return "int"
+
+        tipos = set()
         for i in range(ctx.getChildCount()):
-            child = ctx.getChild(i)
-            self._recorrerExp(child)
+            tipo_hijo = self._tipoExp(ctx.getChild(i))
+            if tipo_hijo:
+                tipos.add(tipo_hijo)
 
-    # ----------------------------
-    # Estructuras de control
-    # ----------------------------
-    def enterIwhile(self, ctx: compiladorParser.IwhileContext):
-        self.ts.addContexto()
-        #analizar la condición
-        if hasattr(ctx, "opal") and ctx.opal() is not None:
-            self._recorrerExp(ctx.opal())
-
-    def exitIwhile(self, ctx: compiladorParser.IwhileContext):
-        self.ts.delContexto()
-
-    def enterIif(self, ctx: compiladorParser.IifContext):
-        self.ts.addContexto() 
-        if hasattr(ctx, "opal") and ctx.opal() is not None:
-            self._recorrerExp(ctx.opal())
-
-    def exitIif(self, ctx: compiladorParser.IifContext):
-        self.ts.delContexto()
-
-    def enterIelse(self, ctx: compiladorParser.IelseContext):
-        self.ts.addContexto()
-
-    def exitIelse(self, ctx: compiladorParser.IelseContext):
-        self.ts.delContexto()
-
-    def enterIfor(self, ctx: compiladorParser.IforContext):
-        self.ts.addContexto()
-
-        if hasattr(ctx, "forInicializacion") and ctx.forInicializacion() is not None:
-            self._recorrerExp(ctx.forInicializacion())
-        if hasattr(ctx, "forCond") and ctx.forCond() is not None:
-            self._recorrerExp(ctx.forCond())
-        if hasattr(ctx, "forActualizacion") and ctx.forActualizacion() is not None:
-            self._recorrerExp(ctx.forActualizacion())
-
-
-    def exitIfor(self, ctx: compiladorParser.IforContext):
-        self.ts.delContexto()
-
-    # ----------------------------
-    # Errores de parsing
-    # ----------------------------
-    def visitErrorNode(self, node: ErrorNode):
-        self.registrarError("sintactico", f"error en token '{node.getText()}'")
-
-    def enterEveryRule(self, ctx):
-        self.numNodos += 1
-
-    # ----------------------------
-    # Impresion final
-    # ----------------------------
-    def exitPrograma(self, ctx):
-        simbolos_vistos = set()
-
-        #recorrer contextos de dentro hacia afuera (como en _usarID)
-        for contexto in reversed(self.ts.contextos):
-            for nombre, simbolo in contexto.simbolos.items():
-                if nombre not in simbolos_vistos:
-                    simbolos_vistos.add(nombre)
-                    if not simbolo.getUsado():
-                        self.registrarError("semantico", f"'{nombre}' declarado pero no usado")
-
-        if self.huboErrores:
-            print("no se puede generar tabla de simbolos debido a errores")
+        if len(tipos) == 1:
+            return tipos.pop()
+        elif len(tipos) > 1:
+            self.registrarError("semantico", "Tipos incompatibles en expresión")
+            return None
         else:
-            self.ts.imprimirTS()
+            return None
+
+    # -----------------------------
+    # Contexto de bloques (if, else, for, while)
+    # -----------------------------
+        # -----------------------------
+# Contexto de bloques (if, else, for, while)
+# -----------------------------
+    def enterBloque(self, ctx):
+        self.ts.addContexto()
+        self.indent += 2
+        print(" " * (self.indent - 2) + "[INFO]: Entrando a bloque")
+
+    def exitBloque(self, ctx):
+        self._verificarVariablesNoUsadas()
+        print(" " * (self.indent - 2) + "[INFO]: Saliendo de bloque")
+        self.ts.delContexto()
+        self.indent -= 2
+
+    def enterIif(self, ctx):
+        self.ts.addContexto()
+        self.indent += 2
+        print(" " * (self.indent - 2) + "[INFO]: Entrando a if")
+
+    def exitIif(self, ctx):
+        self._verificarVariablesNoUsadas()
+        print(" " * (self.indent - 2) + "[INFO]: Saliendo de if")
+        self.ts.delContexto()
+        self.indent -= 2
+
+    def enterIelse(self, ctx):
+        self.ts.addContexto()
+        self.indent += 2
+        print(" " * (self.indent - 2) + "[INFO]: Entrando a else")
+
+    def exitIelse(self, ctx):
+        self._verificarVariablesNoUsadas()
+        print(" " * (self.indent - 2) + "[INFO]: Saliendo de else")
+        self.ts.delContexto()
+        self.indent -= 2
+
+    def enterIfor(self, ctx):
+        self.ts.addContexto()
+        self.indent += 2
+        print(" " * (self.indent - 2) + "[INFO]: Entrando a for")
+
+    def exitIfor(self, ctx):
+        self._verificarVariablesNoUsadas()
+        print(" " * (self.indent - 2) + "[INFO]: Saliendo de for")
+        self.ts.delContexto()
+        self.indent -= 2
+
+    def enterIwhile(self, ctx):
+        self.ts.addContexto()
+        self.indent += 2
+        print(" " * (self.indent - 2) + "[INFO]: Entrando a while")
+
+    def exitIwhile(self, ctx):
+        self._verificarVariablesNoUsadas()
+        print(" " * (self.indent - 2) + "[INFO]: Saliendo de while")
+        self.ts.delContexto()
+        self.indent -= 2
+
+# -----------------------------
+# Método privado: verificar variables no usadas
+# -----------------------------
+    def _verificarVariablesNoUsadas(self):
+        contexto_actual = self.ts.contextos[-1]
+        for nombre, var in contexto_actual.simbolos.items():
+            if isinstance(var, Variable) and not var.getUsado():
+                print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada en contexto local")
+
+    # -----------------------------
+    # Errores
+    # -----------------------------
+    def registrarError(self, tipo, msj):
+        self.huboErrores = True
+        print(" " * self.indent + f"[ERROR {tipo.upper()}]: {msj}")
