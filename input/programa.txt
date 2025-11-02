@@ -4,7 +4,6 @@ int a, b, c = 5, d, e;
 int d;
 
 while(a){
-    int x;
     x = c;
     b = d;
 }
