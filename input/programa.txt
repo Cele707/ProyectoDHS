@@ -1,9 +1,19 @@
-int x = 5;
-int y = 4 + x * 10;
-int a, b, c = 5, d, e;
-int d;
-
-while(a){
-    x = c;
-    b = d;
-}
+int z=0;
+int z=1;
+int a=0, x;
+int b=4;  
+double doble = 3;  
+int entero = 2;
+int c;
+	while (a == 0 && z == 0) { 
+		if (b < 10) {
+			for (int i = 0; i < 5; ++i) {
+				int z;
+                int z;
+			} 
+		}
+         else{
+                w = 2;
+                entero = entero + float;
+         }
+	}
