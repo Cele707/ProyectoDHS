@@ -7,14 +7,7 @@ class EscuchaSintactico(ErrorListener):
         self.errores = []
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        """
-        Detecta errores sintácticos comunes y genera mensajes claros:
-        1. Falta paréntesis de cierre ')'
-        2. Falta paréntesis de apertura '('
-        3. Falta punto y coma ';'
-        4. Formato incorrecto en lista de declaración de variables
-        5. Manejo de bloque '}' para recuperación de errores
-        """
+        
         texto = offendingSymbol.text if offendingSymbol is not None else ""
         mensaje = ""
 
