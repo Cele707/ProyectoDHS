@@ -23,6 +23,7 @@ def main(argv):
     stream = CommonTokenStream(lexer)
     parser = compiladorParser(stream)
     
+    #se elimina el ErrorListener default
     parser.removeErrorListeners()
     errorSintactico = EscuchaSintactico()
     parser.addErrorListener(errorSintactico)
