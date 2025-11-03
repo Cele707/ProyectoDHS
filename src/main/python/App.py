@@ -37,7 +37,7 @@ def main(argv):
     
     #visitante = Caminante()
     #visitante.visitPrograma(tree)
-    #print(escucha)
+    print(escucha)
     # print(tree.toStringTree(recog=parser))
 
 if __name__ == '__main__':

@@ -6,4 +6,6 @@ if (a == 5 {
 if a == 5){
 	int x, y z;
 	int h,j,;
+	int r, t
+	float u = 5;
 }
