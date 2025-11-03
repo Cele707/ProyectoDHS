@@ -1,0 +1,54 @@
+# EscuchaSintactico.py
+from antlr4.error.ErrorListener import ErrorListener
+
+class EscuchaSintactico(ErrorListener):
+    def __init__(self):
+        super().__init__()
+        self.errores = []
+
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        """
+        Detecta errores sintácticos comunes y genera mensajes claros:
+        1. Falta paréntesis de cierre ')'
+        2. Falta paréntesis de apertura '('
+        3. Falta punto y coma ';'
+        4. Formato incorrecto en lista de declaración de variables
+        5. Manejo de bloque '}' para recuperación de errores
+        """
+        texto = offendingSymbol.text if offendingSymbol is not None else ""
+        mensaje = ""
+
+        # === 1. FALTA PARÉNTESIS DE CIERRE ')'
+        if ("expecting ')'" in msg or "missing ')'" in msg or "no viable alternative at input" in msg) \
+           and texto in ["{", ";", "else", "ID", "NUMERO"]:
+            mensaje = f"[ERROR SINTACTICO] falta un paréntesis de cierre ')' antes de '{texto}' (línea {line})"
+
+        # === 2. FALTA PARÉNTESIS DE APERTURA '('
+        elif ("extraneous input" in msg and texto == ")") or ("missing '('" in msg):
+            mensaje = f"[ERROR SINTACTICO] falta un paréntesis de apertura '(' (línea {line})"
+
+        # === 3. FALTA PUNTO Y COMA ';'
+        elif "expecting ';'" in msg or ("mismatched input" in msg and texto in ["}", "else"]):
+            mensaje = f"[ERROR SINTACTICO] falta un punto y coma ';' al final de la instrucción (línea {line})"
+
+        # === 4. FORMATO INCORRECTO EN LISTA DE DECLARACIÓN DE VARIABLES
+        # Ejemplo: int x, y z; → falta coma entre y y z
+        elif ("missing ID" in msg 
+              or ("mismatched input" in msg and "ID" in msg) 
+              or ("no viable alternative at input" in msg and texto.isidentifier())):
+            mensaje = f"[ERROR SINTACTICO] formato incorrecto en la lista de declaración de variables (línea {line})"
+
+        # === 5. TOKEN '}' inesperado (recuperación de errores)
+        elif "no viable alternative at input" in msg and texto == "}":
+            mensaje = f"[ERROR SINTACTICO] probablemente falta un ';' o ')' antes del bloque '}}' (línea {line})"
+
+        # === 6. Otros errores genéricos
+        else:
+            mensaje = f"[ERROR SINTACTICO] línea {line}, columna {column}: {msg}"
+
+        # Guardar e imprimir
+        self.errores.append(mensaje)
+        print(mensaje)
+
+    def hay_errores(self):
+        return len(self.errores) > 0

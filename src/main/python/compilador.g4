@@ -40,6 +40,7 @@ NUMERO : DIGITO+ ;
 //===================
 INT    : 'int'    ;
 DOUBLE : 'double' ; 
+CHAR   : 'char'   ;
 VOID   : 'void'   ;
 
 IF     : 'if'    ;
@@ -147,6 +148,7 @@ ireturn: RETURN opal PYC;
 declaracion: tipo ID  inic listavar PYC ;
 tipo: INT
     | DOUBLE
+    | CHAR
     | VOID
     ;
 

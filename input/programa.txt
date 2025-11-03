@@ -1,20 +1,9 @@
-int z=0;
-int z=1;
-int a=0, x;
-int b=4;  
-double doble = 3;  
-int entero = 2;
-hola prueba;
-int c;
-	while (a == 0 && z == 0) { 
-		if (b < 10) {
-			for (int i = 0; i < 5; ++i) {
-				int z;
-                int z;
-			} 
-		}
-         else{
-                w = 2;
-                entero = entero + float;
-         }
-	}
+int a = 5, b = 0, c = 0;
+if (a == 5 {
+	b = c
+}
+
+if a == 5){
+	int x, y z;
+	int h,j,;
+}

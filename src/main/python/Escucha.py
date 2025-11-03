@@ -11,10 +11,10 @@ class Escucha(compiladorListener):
         self.indent = 0  #nivel de sangría para los prints
 
     # -----------------------------
-    # Contextos
+    # contextos
     # -----------------------------
     def enterPrograma(self, ctx: compiladorParser.ProgramaContext):
-        print("Comienza el parsing\n--- ANALISIS SEMANTICO ---")
+        print("Comienza el parsing\n")
 
     def exitPrograma(self, ctx: compiladorParser.ProgramaContext):
         #verifica variables declaradas pero no utilizadas en todos los contextos
@@ -36,7 +36,7 @@ class Escucha(compiladorListener):
         print("[INFO]: Fin del parsing")
 
     # -----------------------------
-    # Declaraciones
+    # declaraciones
     # -----------------------------
     def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
         #obtiene tipo de dato y el primer Id
@@ -101,7 +101,7 @@ class Escucha(compiladorListener):
         print(" " * self.indent + f"[INFO]: Asignación realizada: '{nombre}' inicializado y usado")
 
     # -----------------------------
-    # Uso de variables en expresiones
+    # uso de variables en expresiones
     # -----------------------------
     def exitFactor(self, ctx: compiladorParser.FactorContext):
         if ctx.ID():
@@ -119,7 +119,7 @@ class Escucha(compiladorListener):
                 print(" " * self.indent + f"[INFO]: Uso de variable '{nombre}' detectado")
 
     # -----------------------------
-    # Evaluación de tipos de expresiones
+    # evaluacion de tipos de expresiones
     # -----------------------------
     def _tipoExp(self, ctx):
         if ctx is None:
@@ -161,7 +161,7 @@ class Escucha(compiladorListener):
             return None
 
     # -----------------------------
-    # Contexto de bloques (if, else, for, while)
+    # contexto de bloques (if, else, for, while)
     # -----------------------------
     def enterBloque(self, ctx):
         self.ts.addContexto()
@@ -218,9 +218,9 @@ class Escucha(compiladorListener):
         self.ts.delContexto()
         self.indent -= 2
 
-# -----------------------------
-# Método privado: verificar variables no usadas 
-# -----------------------------
+    # -----------------------------
+    # metodo privado: verificar variables no usadas 
+    # -----------------------------
     def _verificarVariablesNoUsadas(self):
         contexto_actual = self.ts.contextos[-1]
         for nombre, var in contexto_actual.simbolos.items():
@@ -228,7 +228,7 @@ class Escucha(compiladorListener):
                 print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada en contexto local")
 
     # -----------------------------
-    # Errores
+    # errores
     # -----------------------------
     def registrarError(self, tipo, msj):
         #marca flag y muestra mensaje
