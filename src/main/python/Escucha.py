@@ -14,7 +14,7 @@ class Escucha(compiladorListener):
     # PROGRAMA PRINCIPAL
     # =============================================================
     def enterPrograma(self, ctx: compiladorParser.ProgramaContext):
-        print("Comienza el parsing\n--- ANALISIS SEMANTICO ---")
+        print("Comienza el parsing\n")
 
     def exitPrograma(self, ctx: compiladorParser.ProgramaContext):
         # Verifica variables declaradas pero no usadas en todos los contextos
@@ -40,28 +40,38 @@ class Escucha(compiladorListener):
     # =============================================================
     def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
         tipo = ctx.tipo().getText()
-        ids = [ctx.ID().getText()]
 
+        # Recolecta pares (nombre, tiene_inic) del primer ID y de la lista recursiva
+        vars_list = []
+        # primer id
+        nombre0 = ctx.ID().getText()
+        tiene_inic0 = (ctx.inic() is not None and ctx.inic().getChildCount() > 0)
+        vars_list.append((nombre0, tiene_inic0))
+
+        # recursiva sobre listavar: cada nodo listavar tiene ID() e inic()
         def recolectar_listavar(lv, acumulador):
-            # Función recursiva para recolectar todos los IDs en una lista de variables
-            if lv is not None and lv.ID() is not None:
-                acumulador.append(lv.ID().getText())
+            if lv is None:
+                return
+            if lv.ID() is not None:
+                acumulador.append((lv.ID().getText(), (lv.inic() is not None and lv.inic().getChildCount() > 0)))
+            # seguir la recursión
+            if hasattr(lv, "listavar"):
                 recolectar_listavar(lv.listavar(), acumulador)
 
-        recolectar_listavar(ctx.listavar(), ids)
+        recolectar_listavar(ctx.listavar(), vars_list)
 
-        # Procesa cada variable
-        for i, nombre in enumerate(ids):
+        # Procesa cada variable con su información de inicialización correcta
+        for nombre, tiene_inic in vars_list:
             if self.ts.buscarSimboloContexto(nombre):
                 self.registrarError("semantico", f"'{nombre}' ya declarado en contexto actual")
             else:
                 var = Variable(nombre, tipo)
-                # Solo el primer ID puede tener inicialización
-                if i == 0 and ctx.inic() and ctx.inic().getChildCount() > 0:
+                var.advertencia_reportada = False  # si usás esa bandera
+                if tiene_inic:
                     var.setInicializado(True)
-                # Se agrega la variable a la tabla de símbolos
                 self.ts.addSimbolo(var)
-                print(" " * self.indent + f"[INFO]: Variable '{nombre}' de tipo '{tipo}' agregada")
+                print(" " * self.indent + f"[INFO]: Variable '{nombre}' de tipo '{tipo}' agregada"
+                                        + ( " (inicializada)" if tiene_inic else "" ))
 
     # =============================================================
     # ASIGNACIONES
@@ -195,34 +205,45 @@ class Escucha(compiladorListener):
     def exitForInicializacion(self, ctx: compiladorParser.ForInicializacionContext):
         """
         Maneja la declaración dentro del encabezado de un bucle 'for'.
-        Ejemplo: for (int i = 0, k; i < 5; ++i)
+        Ejemplo: for (int i = 0, k, j = 2; i < 5; ++i)
         """
 
-        # Verifica que exista un tipo y al menos un ID
         if ctx.tipo() and ctx.ID():
             tipo = ctx.tipo().getText()
-            ids = [ctx.ID().getText()]
 
-            # Función recursiva para recolectar todos los IDs en la lista del for
+            # Lista para almacenar (nombre, inicializada?)
+            vars_list = []
+
+            # Primer ID
+            nombre0 = ctx.ID().getText()
+            inic0 = (ctx.inic() is not None and ctx.inic().getChildCount() > 0)
+            vars_list.append((nombre0, inic0))
+
+            # Función recursiva que recorre listavar
             def recolectar_listavar(lv, acumulador):
-                if lv is not None and lv.ID() is not None:
-                    acumulador.append(lv.ID().getText())
+                if lv is None:
+                    return
+                if lv.ID() is not None:
+                    tiene_inic = (lv.inic() is not None and lv.inic().getChildCount() > 0)
+                    acumulador.append((lv.ID().getText(), tiene_inic))
+                if hasattr(lv, "listavar"):
                     recolectar_listavar(lv.listavar(), acumulador)
 
-            recolectar_listavar(ctx.listavar(), ids)
+            # Recolectar todas las variables del for
+            recolectar_listavar(ctx.listavar(), vars_list)
 
-            # Procesa cada variable del for
-            for i, nombre in enumerate(ids):
+            # Procesar cada variable
+            for nombre, inicializada in vars_list:
                 if self.ts.buscarSimboloContexto(nombre):
                     self.registrarError("semantico", f"'{nombre}' ya declarado en contexto actual (for)")
                 else:
                     var = Variable(nombre, tipo)
-                    # Solo el primer ID puede estar inicializado si hay asignación
-                    if i == 0 and ctx.inic() and ctx.inic().getChildCount() > 0:
+                    if inicializada:
                         var.setInicializado(True)
-                    # Los demás IDs no se inicializan automáticamente
                     self.ts.addSimbolo(var)
-                    print(" " * self.indent + f"[INFO]: Variable '{nombre}' declarada dentro del for (tipo {tipo})")
+                    print(" " * self.indent +
+                        f"[INFO]: Variable '{nombre}' declarada dentro del for (tipo {tipo})"
+                        + (" (inicializada)" if inicializada else ""))
 
     # ---- WHILE ----
     def enterIwhile(self, ctx):
