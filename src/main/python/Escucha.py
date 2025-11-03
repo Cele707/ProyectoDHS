@@ -19,7 +19,7 @@ class Escucha(compiladorListener):
     def exitPrograma(self, ctx: compiladorParser.ProgramaContext):
         # Verifica variables declaradas pero no usadas en todos los contextos
         hay_advertencias = False
-        for contexto in self.ts.contextos:
+        for contexto in self.ts.historialCTX:
             for nombre, var in contexto.simbolos.items():
                 if isinstance(var, Variable) and not var.getUsado():
                     if not hay_advertencias:

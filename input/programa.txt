@@ -1,19 +1,32 @@
-int z=0;
-int z=1;
-int a=0, x;
-int b=4;  
-double doble = 3;  
-int entero = 2;
-int c;
-	while (a == 0 && z == 0) { 
-		if (b < 10) {
-			for (int i = 0; i < 5; ++i) {
-				int z;
-                int z;
-			} 
-		}
-         else{
-                w = 2;
-                entero = entero + float;
-         }
-	}
+//CON ERRORES
+int z=0, z=1, a = 0, x = a, p, b=4;   
+v = 2;
+double doble = 3;   
+int entero = doble; 
+int c, y = c;
+    while (a == 0 && z == 0) {    
+        if (b < 10) {    
+            for (int i = 0, j = 0; i < 5; ++i) {     
+            int z;                 
+            int z;     
+            }    
+        }    
+        else{                 
+            w = 2;                 
+            entero = entero + doble;          
+        }  
+    } 
+
+//SIN ERRORES
+int z=0, a = 0, x = a, p, b=4;   
+double doble = 3;   
+    while (a == 0 && z == 0) {    
+        if (b < 10) {    
+            for (int i = 0, j = 0, k; i < 5; ++i) {                      
+            int z;     
+            }    
+        }    
+        else{                 
+            int w = 2;                          
+        }  
+    } 
