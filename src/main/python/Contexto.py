@@ -5,6 +5,7 @@ class Contexto:
         #diccionario de simbolos
         #clave = nombre del ID, valor = objeto ID
         self.simbolos = {}
+        self.declaraciones_permitidas = True
     
     def addSimbolo(self, id_obj: ID):
         #agrega un simbolo en el contexto actual.
@@ -17,3 +18,9 @@ class Contexto:
     def buscarSimbolo(self, nombre):
         #busca un simbolo con el nombre en el contexto, si no encuentra ninguno devuelve None
         return self.simbolos.get(nombre, None)
+    
+    def canDeclarar(self) -> bool:
+        return self.declaraciones_permitidas
+    
+    def forbidDeclaraciones(self):
+        self.declaraciones_permitidas = False

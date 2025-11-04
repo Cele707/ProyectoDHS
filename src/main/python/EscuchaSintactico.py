@@ -20,7 +20,7 @@ class EscuchaSintactico(ErrorListener):
             mensaje = f"[ERROR SINTACTICO] falta un paréntesis de apertura '(' (línea {line})"
 
         #falta de punto y coma
-        elif "expecting ';'" in msg or ("mismatched input" in msg and texto in ["}", "else"]):
+        elif "expecting ';'" in msg or ("mismatched input" in msg and texto in ["}", "else", "if"]):
             mensaje = f"[ERROR SINTACTICO] falta un punto y coma ';' al final de la instrucción (línea {line})"
 
         #falta de punto y coma antes de una nueva declaracion
