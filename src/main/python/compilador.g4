@@ -40,6 +40,7 @@ NUMERO : DIGITO+ ;
 //===================
 INT    : 'int'    ;
 DOUBLE : 'double' ; 
+FLOAT   : 'float'   ;
 VOID   : 'void'   ;
 
 IF     : 'if'    ;
@@ -147,6 +148,7 @@ ireturn: RETURN opal PYC;
 declaracion: tipo ID  inic listavar PYC ;
 tipo: INT
     | DOUBLE
+    | FLOAT
     | VOID
     ;
 
@@ -246,5 +248,4 @@ argumentos: COMA opal argumentos
 
 //declaracion
 funcion : tipo ID PA parametros PC bloque; //si o si deben tener bloque, si tienen una sola instruccion debe estar dentro del bloque
-
 

@@ -1,29 +1,31 @@
 import sys
 from antlr4 import *
-from compiladorLexer  import compiladorLexer
+from Caminante import Caminante
+from compiladorLexer import compiladorLexer
 from compiladorParser import compiladorParser
 from Escucha import Escucha
-#from Caminante import Caminante
-
-# En caso de no poder ejecutar el programa Python por
-# problemas de version (error ATNdeserializer), se
-# pueden generar los archivos a mano.
-#
-# Ir a la carpeta donde esta el archivo .g4 y ejecutar 
-#     antlr4 -Dlanguage=Python3 -visitor compilador.g4 -o .
+from EscuchaSintactico import EscuchaSintactico
 
 def main(argv):
-    # archivo = "input/programa.txt"
-    archivo = "input/programa.txt"
+    #archivo = "Practicos/Practico2/input/entradaConErrores.txt"
+    archivo = "Practicos/Practico2/input/entradaSinErrores.txt"
     if len(argv) > 1 :
         archivo = argv[1]
     input = FileStream(archivo)
     lexer = compiladorLexer(input)
     stream = CommonTokenStream(lexer)
     parser = compiladorParser(stream)
+    
+    #se elimina el ErrorListener default
+    parser.removeErrorListeners()
+    errorSintactico = EscuchaSintactico()
+    parser.addErrorListener(errorSintactico)
+    
     escucha = Escucha()
+
     parser.addParseListener(escucha)
     tree = parser.programa()
+    
     #visitante = Caminante()
     #visitante.visitPrograma(tree)
     print(escucha)

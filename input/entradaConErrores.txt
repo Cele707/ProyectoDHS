@@ -1,0 +1,22 @@
+int entero = 3;
+float flot = 3;
+int x, y z;
+int j= 0
+if (entero == 0 {
+    entero = 1;
+}
+if entero == 0) {
+    entero = 1;
+}
+
+while (a == 0 && z == 0) { 
+    if (b < 10) {
+        for (int i = 0; i < 5; ++i) {
+            int z;
+        }
+    }else {
+            w = 2;
+            entero = entero + flot;
+        }
+
+}
