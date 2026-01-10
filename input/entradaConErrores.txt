@@ -9,7 +9,7 @@ if entero == 0) {
     entero = 1;
 }
 
-while (a == 0 && z == 0) { 
+while (a == 0 && z == 0) {
     if (b < 10) {
         for (int i = 0; i < 5; ++i) {
             int z;

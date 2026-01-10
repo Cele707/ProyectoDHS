@@ -1,6 +1,8 @@
-# EscuchaSintactico.py
+#EscuchaSintactico.py
 from antlr4.error.ErrorListener import ErrorListener
 
+#lo que hace nuestro EscuchaSintactico es ver los mensajes de error que tira por defecto ANTLR,
+#identificarlos y cambiar el mensaje que se muestra
 class EscuchaSintactico(ErrorListener):
     def __init__(self):
         super().__init__()
@@ -10,28 +12,31 @@ class EscuchaSintactico(ErrorListener):
         texto = offendingSymbol.text if offendingSymbol is not None else ""
         mensaje = ""
 
-        #falta de parentesis de cierre
-        if ("expecting ')'" in msg or "missing ')'" in msg) \
-           and texto in ["{", ";", "ID", "NUMERO"]:
+        #---FALTA DE PARENTESIS DE CIERRE---
+        if ("expecting ')'" in msg or "missing ')'" in msg or "no viable alternative at input" in msg) and texto in ["{", ";", "ID", "NUMERO"]:
             mensaje = f"[ERROR SINTACTICO] falta un paréntesis de cierre ')' antes de '{texto}' (línea {line})"
 
-        #falta de parentesis de apertura
+        #--- FALTA DE PARENTESIS DE APERTURA---
         elif ("extraneous input" in msg and texto == ")") or ("missing '('" in msg):
             mensaje = f"[ERROR SINTACTICO] falta un paréntesis de apertura '(' (línea {line})"
 
-        #falta de punto y coma
-        elif "expecting ';'" in msg or ("mismatched input" in msg and texto in ["}", "else", "if"]):
-            mensaje = f"[ERROR SINTACTICO] falta un punto y coma ';' al final de la instrucción (línea {line})"
+        #---FALTA DE PUNTO Y COMA---
+        elif ("expecting ';'" in msg 
+            or ("mismatched input" in msg and "expecting ';'" in msg)
+            or ("mismatched input" in msg and texto in ["}", "else"])
+            or ("no viable alternative at input" in msg and texto in ["int", "double", "if", "while", "for", "return"])
+            ):
+            linea_reportada = line #linea del token ofensivo
+            if "expecting ';'" in msg or "no viable alternative" in msg: #estos mensajes de error suelen aparecer cuando se encuentra un error en la siguiente linea no vacia.
+                tokens = recognizer.getInputStream().tokens #se cargan los tokens
+                if offendingSymbol.tokenIndex > 0:
+                    token_previo = tokens[offendingSymbol.tokenIndex - 1]
+                    linea_reportada = token_previo.line
+            
+            mensaje = f"[ERROR SINTACTICO] falta un punto y coma ';' al final de la instrucción (línea {linea_reportada})"
 
-        #falta de punto y coma antes de una nueva declaracion
-        elif ("no viable alternative at input" in msg and texto in ["int", "float", "char", "bool"]):
-            mensaje = f"[ERROR SINTACTICO] falta un punto y coma ';' antes de la nueva declaración (línea {line})"
 
-        #falta de identificador en una lista de variables
-        elif texto == "<missing ID>":
-            mensaje = f"[ERROR SINTACTICO] falta un identificador en la lista de variables (línea {line})"
-
-        #falta de coma entre variables
+        #--- FALTA DE COMA ENTRE VARIABLES---
         elif ("no viable alternative at input" in msg or "mismatched input" in msg) and texto.isidentifier():
             try:
                 #obtenemos el siguiente token para adivinar si falta la coma
@@ -45,12 +50,11 @@ class EscuchaSintactico(ErrorListener):
                 mensaje = f"[ERROR SINTACTICO] falta una coma o separador en la lista de variables (línea {line})"
 
         # --- FORMATO INCORRECTO EN LISTA DE DECLARACIÓN ---
-        elif ("missing ID" in msg or ("mismatched input" in msg and "ID" in msg)):
+        elif ("missing ID" in msg 
+              or ("mismatched input" in msg and "ID" in msg)
+              or ("no viable alternative at input" in msg and texto.isidentifier())
+              ):
             mensaje = f"[ERROR SINTACTICO] formato incorrecto en la lista de declaración de variables (línea {line})"
-
-        # --- TOKEN '}' INESPERADO ---
-        elif "no viable alternative at input" in msg and texto == "}":
-            mensaje = f"[ERROR SINTACTICO] probablemente falta un ';' o ')' antes del bloque '}}' (línea {line})"
 
         # --- ERRORES GENÉRICOS ---
         else:

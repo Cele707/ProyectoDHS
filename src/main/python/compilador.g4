@@ -13,14 +13,14 @@ LLC : '}' ;
 PYC : ';' ;
 
 IGUAL    : '==' ;
-DISTINTO :'!=' ;
-MAYOR    : '>' ;
-MENOR    : '<' ;
+DISTINTO :'!='  ;
+MAYOR    : '>'  ;
+MENOR    : '<'  ;
 MAYORIG  : '>=' ;
 MENORIG  : '<=' ;
 AND      : '&&' ;
 OR       : '||' ;
-NOT      : '!' ;
+NOT      : '!'  ;
 
 ASIG  : '=' ;
 COMA  : ',' ;
@@ -40,7 +40,7 @@ NUMERO : DIGITO+ ;
 //===================
 INT    : 'int'    ;
 DOUBLE : 'double' ; 
-FLOAT   : 'float'   ;
+FLOAT   : 'float' ;
 VOID   : 'void'   ;
 
 IF     : 'if'    ;
