@@ -7,8 +7,8 @@ from Escucha import Escucha
 from EscuchaSintactico import EscuchaSintactico
 
 def main(argv):
-    archivo = "input/entradaConErrores.txt"
-    #archivo = "input/entradaSinErrores.txt"
+    #archivo = "input/entradaConErrores.txt"
+    archivo = "input/entradaSinErrores.txt"
     if len(argv) > 1 :
         archivo = argv[1]
     input = FileStream(archivo)

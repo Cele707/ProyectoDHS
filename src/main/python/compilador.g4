@@ -11,6 +11,8 @@ PC  : ')' ;
 LLA : '{' ;
 LLC : '}' ;
 PYC : ';' ;
+PTO : '.' ;
+COMILLA: '\'';
 
 IGUAL    : '==' ;
 DISTINTO :'!='  ;
@@ -34,6 +36,10 @@ DEC   : '--';
 
 
 NUMERO : DIGITO+ ;
+DECIMAL: DIGITO+ PTO DIGITO+ // 111.234
+       | PTO DIGITO+ // .234
+       | DIGITO+ PTO // 11.
+       ;
 
 //===================
 //Palabras reservadas
@@ -42,6 +48,8 @@ INT    : 'int'    ;
 DOUBLE : 'double' ; 
 FLOAT   : 'float' ;
 VOID   : 'void'   ;
+CHAR   : 'char'   ;
+BOOL   : 'bool'   ;
 
 IF     : 'if'    ;
 ELSE   : 'else'  ;
@@ -49,14 +57,24 @@ WHILE  : 'while' ;
 FOR    : 'for'   ;
 RETURN : 'return';
 
+CARACTER : COMILLA CARACTER_INTERNO COMILLA; //para los char
+fragment CARACTER_INTERNO: ~['\\]           // cualquier cosa que no sea ' ni \
+                | '\\' ( 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' | '\\' | '\'' | '"' )
+                //para los casos de escape y otros caracteres
+                // ej \n o \' se ponen dos \\ pq eso significa una \ en el codigo
+                ;
+
 ID : (LETRA | '_')(LETRA | DIGITO | '_')* ;
 
+TRUE  : 'TRUE'   ;
+FALSE : 'FALSE' ;
+
 WS : [ \n\r\t] -> skip;
-OTRO : . ;
+//OTRO : . ;
 
 s : ID     {print("ID ->" + $ID.text + "<--") }         s
   | NUMERO {print("NUMERO ->" + $NUMERO.text + "<--") } s
-  | OTRO   {print("Otro ->" + $OTRO.text + "<--") }     s
+  //| OTRO   {print("Otro ->" + $OTRO.text + "<--") }     s
   | EOF
   ;
 
@@ -150,6 +168,8 @@ tipo: INT
     | DOUBLE
     | FLOAT
     | VOID
+    | CHAR
+    | BOOL
     ;
 
 //para poner una lista de variables en la declaracion, int x, y, z;
@@ -209,6 +229,10 @@ t    : MULT factor t
      ;
 
 factor : NUMERO
+       | DECIMAL
+       | CARACTER
+       | TRUE
+       | FALSE
        | ID
        | PA opal PC
        | llamada
