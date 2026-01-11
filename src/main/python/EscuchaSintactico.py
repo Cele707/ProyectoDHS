@@ -56,7 +56,7 @@ class EscuchaSintactico(ErrorListener):
               ):
             mensaje = f"[ERROR SINTACTICO] formato incorrecto en la lista de declaración de variables (línea {line})"
 
-        # --- ERRORES GENÉRICOS ---
+        # --- OTROS ERRORES ---
         else:
             mensaje = f"[ERROR SINTACTICO] línea {line}, columna {column}: {msg}"
 
