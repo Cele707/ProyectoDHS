@@ -12,13 +12,13 @@ class Escucha(compiladorListener):
     """
     def __init__(self):
         super().__init__()
-        self.ts = TablaSimbolos()      # Singleton de tabla de símbolos
-        self.huboErrores = False       # Flag para indicar si hubo errores semánticos
-        self.indent = 0                # Nivel de indentación para mensajes de consola
+        self.ts = TablaSimbolos()      #singleton de tabla de símbolos
+        self.huboErrores = False       #flag para indicar si hubo errores semánticos
+        self.indent = 0                #nivel de indentación para mensajes de consola
 
-        # Bandera especial para manejar dependencias en declaraciones múltiples
+        #bandera especial para manejar dependencias en declaraciones múltiples
         self.leyendoDeclaracion = False
-        self.bufferDeclaracion = []    # No usado en la lógica actual, pero mantenido
+        self.bufferDeclaracion = []    #no usado en la lógica actual, pero mantenido
 
     # =============================================================
     # PROGRAMA PRINCIPAL
@@ -30,7 +30,7 @@ class Escucha(compiladorListener):
     def exitPrograma(self, ctx: compiladorParser.ProgramaContext):
         """Fin del análisis y resumen de resultados."""
         
-        # Verifica variables declaradas pero no usadas en todos los contextos (global)
+        #verifica variables declaradas pero no usadas en todos los contextos (global)
         hay_advertencias = False
         for contexto in self.ts.contextos:
             for nombre, var in contexto.simbolos.items():
@@ -40,7 +40,7 @@ class Escucha(compiladorListener):
                         hay_advertencias = True
                     print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada")
 
-        # Imprime la tabla de símbolos final si no hubo errores
+        #imprime la tabla de símbolos final si no hubo errores
         if self.huboErrores:
             print("[INFO]: No se puede generar tabla de símbolos debido a errores")
         else:
@@ -60,7 +60,7 @@ class Escucha(compiladorListener):
         (ej: int a=1, b=a;).
         """
         self.leyendoDeclaracion = True
-        self.bufferDeclaracion = [] # Se limpia, aunque no se usa en el chequeo semántico
+        self.bufferDeclaracion = [] #se limpia, aunque no se usa en el chequeo semántico
 
     def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
         """
@@ -70,14 +70,14 @@ class Escucha(compiladorListener):
         """
         tipo = ctx.tipo().getText()
 
-        # Recolecta triples (nombre, tiene_inic, inic_ctx) del primer ID y de la lista recursiva
+        #recolecta triples (nombre, tiene_inic, inic_ctx) del primer ID y de la lista recursiva
         vars_list = []
-        # Primer ID
+        #primer ID
         nombre0 = ctx.ID().getText()
         inic0 = ctx.inic() if (ctx.inic() is not None and ctx.inic().getChildCount() > 0) else None
         vars_list.append((nombre0, inic0 is not None, inic0))
 
-        # Función recursiva sobre listavar (coma y ID siguiente)
+        #función recursiva sobre listavar (coma y ID siguiente)
         def recolectar_listavar(lv, acumulador):
             if lv is None:
                 return
@@ -98,7 +98,7 @@ class Escucha(compiladorListener):
                 self.registrarError("semantico", f"'{nombre}' ya declarado en contexto actual")
             else:
                 var = Variable(nombre, tipo)
-                # Agregar a tabla ANTES de evaluar inicializadores posteriores
+                #agregar a tabla ANTES de evaluar inicializadores posteriores
                 self.ts.addSimbolo(var)
                 print(" " * self.indent + f"[INFO]: Variable '{nombre}' de tipo '{tipo}' agregada"
                                          + ( " (inicializada)" if tiene_inic else "" ))
@@ -107,14 +107,14 @@ class Escucha(compiladorListener):
         # FASE 2: Chequeo de Inicialización y Tipos
         # --------------------------------------------------
         for nombre, tiene_inic, inic_ctx in vars_list:
-            # Obtener el símbolo recién insertado
+            #obtener el símbolo recién insertado
             var = self.ts.buscarSimboloContexto(nombre)
             
             if var and tiene_inic and inic_ctx is not None:
-                # Intentamos obtener el contexto de la expresión dentro de inic
+                #intentamos obtener el contexto de la expresión dentro de inic
                 valor_ctx = None
                 
-                # Acceso defensivo a la expresión (asumiendo opal() o el primer hijo)
+                #acceso defensivo a la expresión (asumiendo opal() o el primer hijo)
                 if hasattr(inic_ctx, "opal") and inic_ctx.opal() is not None:
                     valor_ctx = inic_ctx.opal()
                 elif inic_ctx.getChildCount() > 0:
@@ -125,7 +125,7 @@ class Escucha(compiladorListener):
                             valor_ctx = ch
                             break
 
-                # Evaluamos tipo del valor con chequeo de uso habilitado (leyendoDeclaracion=False)
+                #evaluamos tipo del valor con chequeo de uso habilitado (leyendoDeclaracion=False)
                 prev_flag = self.leyendoDeclaracion
                 self.leyendoDeclaracion = False # Temporalmente desactivado para chequear uso
                 try:
@@ -134,15 +134,15 @@ class Escucha(compiladorListener):
                     # restaurar flag original
                     self.leyendoDeclaracion = prev_flag
 
-                # Comprobación de compatibilidad de tipos (Ej: int = float)
+                #comprobación de compatibilidad de tipos (Ej: int = float)
                 if tipo_valor and tipo != tipo_valor:
                     self.registrarError("semantico",
                                         f"Inicialización incompatible: '{nombre}' es {tipo} y se intenta inicializar con {tipo_valor}")
 
-                # Si no hubo error de tipo (o si hubo, para evitar errores en cascada), marcamos inicializada
+                #si no hubo error de tipo (o si hubo, para evitar errores en cascada), marcamos inicializada
                 var.setInicializado(True)
                 
-        # Desactivar modo lectura de declaración
+        #desactivar modo lectura de declaración
         self.leyendoDeclaracion = False
 
     # =============================================================
@@ -154,25 +154,25 @@ class Escucha(compiladorListener):
         if exp_asig_ctx is None:
             return
             
-        # Obtiene el nombre de la variable destino y la expresión a asignar
+        #obtiene el nombre de la variable destino y la expresión a asignar
         nombre = exp_asig_ctx.ID().getText()
         valor_ctx = exp_asig_ctx.opal()
         
-        # Verifica que la variable exista y obtén el símbolo
+        #verifica que la variable exista y obtén el simbolo
         simbolo = self._verificarExistenciaVariable(nombre)
         if simbolo is None:
             return
             
-        # Obtiene tipo de la variable destino y tipo de la expresión
+        #obtiene tipo de la variable destino y tipo de la expresión
         tipo_destino = simbolo.getTipoDato()
         tipo_valor = self._tipoExp(valor_ctx)
         
-        # Compara el tipo de la variable destino con el tipo de la expresión
+        #compara el tipo de la variable destino con el tipo de la expresión
         if tipo_valor and tipo_destino != tipo_valor:
             self.registrarError("semantico",
                                 f"Asignación incompatible: '{nombre}' es {tipo_destino} y se intenta asignar {tipo_valor}")
         
-        # Marca variable como inicializada y usada
+        #marca variable como inicializada y usada
         simbolo.setInicializado(True)
         simbolo.setUsado(True)
         print(" " * self.indent + f"[INFO]: Asignación realizada: '{nombre}' inicializado y usado")
@@ -219,12 +219,12 @@ class Escucha(compiladorListener):
             var = self._verificarExistenciaVariable(nombre)
             if var is None:
                 return None
-            # Si NO estamos leyendo una declaración, reportar error de 'no inicializado'
+            #si NO estamos leyendo una declaración, reportar error de 'no inicializado'
             if not self.leyendoDeclaracion:
                 if not var.getInicializado():
                     self.registrarError("semantico", f"'{nombre}' usado sin inicializar")
             
-            # La variable se marca como usada al ser parte de una expresión
+            #la variable se marca como usada al ser parte de una expresión
             var.setUsado(True) 
             return var.getTipoDato()
             
@@ -234,7 +234,7 @@ class Escucha(compiladorListener):
             # Aquí podrías distinguir entre int y float si tu gramática lo soporta
             return "int"
             
-        # Verifica tipos de los hijos de la expresión (operadores)
+        #verifica tipos de los hijos de la expresión (operadores)
         tipos = set()
         for i in range(ctx.getChildCount()):
             # Llamada recursiva a la expresión hija
@@ -242,11 +242,11 @@ class Escucha(compiladorListener):
             if tipo_hijo:
                 tipos.add(tipo_hijo)
                 
-        # Si todos los hijos son del mismo tipo devuelve ese tipo (Ej: int + int = int)
+        #si todos los hijos son del mismo tipo devuelve ese tipo (Ej: int + int = int)
         if len(tipos) == 1:
             return tipos.pop()
         elif len(tipos) > 1:
-            # Tipos incompatibles en operación (Ej: int + float)
+            #tipos incompatibles en operación (Ej: int + float)
             self.registrarError("semantico", "Tipos incompatibles en expresión")
             return None
         else:
@@ -325,7 +325,7 @@ class Escucha(compiladorListener):
             inic0 = ctx.inic() if (ctx.inic() is not None and ctx.inic().getChildCount() > 0) else None
             vars_list.append((nombre0, inic0 is not None, inic0))
 
-            # Función recursiva que recorre listavar
+            #función recursiva que recorre listavar
             def recolectar_listavar(lv, acumulador):
                 if lv is None: return
                 if lv.ID() is not None:
@@ -337,7 +337,7 @@ class Escucha(compiladorListener):
 
             recolectar_listavar(ctx.listavar(), vars_list)
 
-            # Inserción de símbolos
+            #inserción de simbolos
             for nombre, inicializada, inic_ctx in vars_list:
                 if self.ts.buscarSimboloContexto(nombre):
                     self.registrarError("semantico", f"'{nombre}' ya declarado en contexto actual (for)")
@@ -360,7 +360,7 @@ class Escucha(compiladorListener):
                     elif inic_ctx.getChildCount() > 0:
                         valor_ctx = inic_ctx.getChild(0)
 
-                    # Evaluación temporal con leyendoDeclaracion=False
+                    #evaluación temporal con leyendoDeclaracion=False
                     prev_flag = self.leyendoDeclaracion
                     self.leyendoDeclaracion = False
                     try:
@@ -403,7 +403,7 @@ class Escucha(compiladorListener):
         """
         simbolo = self.ts.buscarSimbolo(nombre)
 
-        # Si el símbolo NO existe y NO estamos leyendo una declaración
+        #si el símbolo NO existe y NO estamos leyendo una declaración
         if simbolo is None and not self.leyendoDeclaracion:
             self.registrarError("semantico", f"Variable '{nombre}' no reconocida o no declarada")
             return None
