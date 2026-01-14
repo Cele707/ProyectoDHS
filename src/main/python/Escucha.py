@@ -345,11 +345,11 @@ class Escucha(compiladorListener):
             if funcion_previa.prototipado and not funcion_previa.inicializado:
                 #verificar que los argumentos del prototipo y de la funcion coincidan
                 if not self.verificar_correspondencia_parametros(funcion_previa.args, self.argumentos_funcion_actual):
-                    self.registrarError("semantico", f"La definicion de '{nombre_funcion}' no coincide con su prototipo")
+                    self.registrarError("semantico", f"La definición de '{nombre_funcion}' no coincide con su prototipo")
                 else:
                     funcion_previa.inicializado = True
                     funcion_previa.setArgs(self.argumentos_funcion_actual)
-                    print(f"Definición de función '{nombre_funcion}' completada.")
+                    print(f"[INFO] Definición de función '{nombre_funcion}' completada.")
             
             
             elif funcion_previa.inicializado:
@@ -369,7 +369,7 @@ class Escucha(compiladorListener):
                 self.ts.contextos[-2].addSimbolo(nueva_funcion)
             else:
                 self.ts.addSimbolo(nueva_funcion)    
-            print(f"DEBUG: Función '{nombre_funcion}' creada y guardada.")
+            print(f"[INFO]: Función '{nombre_funcion}' creada y guardada.")
             
         # Limpiar variables de función
         self.nombre_funcion_actual = None
@@ -402,9 +402,9 @@ class Escucha(compiladorListener):
                 # CORRECCIÓN 2: Pasamos el OBJETO var_arg, no el string identificador
                 self.ts.addSimbolo(var_arg) 
                 
-                print(f"DEBUG: Argumento '{identificador}' registrado en contexto local")
+                print(f"[INFO]: Argumento '{identificador}' registrado en contexto local")
             else:
-                print(f"DEBUG: El argumento '{identificador}' ya existe en el contexto")
+                self.registrarError("semantico", f"El argumento '{identificador}' ya existe en el contexto")
                 pass
     def exitParametros(self, ctx: compiladorParser.ParametrosContext):
         self.lectura_argumentos = False
