@@ -248,29 +248,24 @@ factor : NUMERO
 //=========
 
 //prototipo de funcion
-prototipo : tipo ID PA parametros PC PYC ;
-parametros : parametro listaParametros
-           |
-           ;
-listaParametros: COMA parametro listaParametros
-               |
-               ;
-//un parametro puede ser un tipo seguido de 1 o mas IDs
-parametro: tipo ID listaID ;
-//permite varias IDs despues del primero
-listaID: COMA ID listaID
-       |
-       ;
+prototipo : tipo ID PA prototipoparametros PC PYC ;
+prototipoparametros: tipo ID COMA prototipoparametros
+                   | tipo ID
+                   |
+                   ;
+//declaracion
+funcion : tipo ID PA parametros PC bloque; //si o si deben tener bloque, si tienen una sola instruccion debe estar dentro del bloque
+parametros: p COMA parametros
+          | p
+          |
+          ;
+p : tipo ID ;
 //llamada a la funcion
-llamada : ID PA listaArg PC ;
-listaArg: opal argumentos //permite 0 o mas argumentos f(x, y)
-        | // f()
-        ;
-argumentos: COMA opal argumentos
+llamada : ID PA argumento PC ;
+argumento: opal
+          | opal COMA argumento
           |
           ;
 
-//declaracion
-funcion : tipo ID PA parametros PC bloque; //si o si deben tener bloque, si tienen una sola instruccion debe estar dentro del bloque
 
 

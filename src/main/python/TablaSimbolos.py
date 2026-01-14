@@ -1,5 +1,5 @@
 from Contexto import Contexto
-from ID import ID, Variable
+from ID import ID, Variable, Funcion
 
 
 class TablaSimbolos:
@@ -29,8 +29,8 @@ class TablaSimbolos:
         """Elimina el último contexto de la pila actual, sin tocar el historial."""
         if len(self.contextos) > 1:
             self.contextos.pop()
-        else:
-            raise ValueError("No se puede eliminar el contexto global")
+        #else:
+            #raise ValueError("No se puede eliminar el contexto global")
 
     def addSimbolo(self, id_obj: ID):
         """Agrega un símbolo al contexto actual (tope de la pila)."""
@@ -49,19 +49,42 @@ class TablaSimbolos:
         return self.contextos[-1].buscarSimbolo(nombre)
 
     def imprimirTS(self):
+        print("\n[INFO]: Tabla de símbolos final:")
         for idx, contexto in enumerate(self.historialCTX):
-            # Título del contexto sin sangría
             print(f"--- Contexto #{idx} (nivel {contexto.nivel}) ---")
             
-            # Cabecera de columnas sin sangría
-            print(f"{'Variable':<15} {'Tipo':<10} {'Inicializado':<12} {'Usado':<6}")
+            # DEFINICIÓN DE COLUMNAS:
+            # Funcion: 30 espacios (para que quepan nombre y argumentos)
+            # Variable: 20 espacios
+            # Tipo: 10 espacios
+            # Inicializado: 12 espacios
+            # Usado: 6 espacios
+            print(f"{'Funcion':<30} {'Variable':<20} {'Tipo':<10} {'Inicializado':<12} {'Usado':<6}")
 
             if not contexto.simbolos:
                 print("vacío")
             else:
                 for nombre, simbolo in contexto.simbolos.items():
-                    print(f"{nombre:<15} {simbolo.tipoDato:<10} "
-                        f"{str(simbolo.inicializado):<12} {str(simbolo.usado):<6}")
+                    
+                    # Variables auxiliares para llenar las columnas
+                    col_funcion = ""
+                    col_variable = ""
+                    
+                    if isinstance(simbolo, Funcion):
+                        # Si es funcion, armamos el string con argumentos y lo ponemos en col_funcion
+                        # Asumiendo que simbolo.args es tu lista de diccionarios
+                        args_str = "(" + ", ".join(f"{arg['tipo']} {arg['nombre']}" for arg in simbolo.args) + ")"
+                        col_funcion = f"{nombre} {args_str}"
+                        col_variable = "-" # Guion o vacio en la columna de variable
+                    
+                    elif isinstance(simbolo, Variable):
+                        # Si es variable, ponemos el nombre en col_variable
+                        col_funcion = "-"  # Guion o vacio en la columna de funcion
+                        col_variable = nombre
+                    
+                    # IMPRESIÓN DE LA FILA
+                    # Usamos los mismos anchos definidos arriba (<30, <20, etc.)
+                    print(f"{col_funcion:<30} {col_variable:<20} {simbolo.tipoDato:<10} {str(simbolo.inicializado):<12} {str(simbolo.usado):<6}")
 
-            # Línea en blanco entre contextos
             print("\n")
+            

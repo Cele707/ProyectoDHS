@@ -1,13 +1,11 @@
-int a = 0, x = a, p, b=4;   
-double doble = 3;   
-    while (a == 0 && z == 0) {    
-        if (b < 10) {    
-            for (int i = 0, j = 0, k; i < 5; ++i) {                      
-            int z;     
-            }    
-        }    
-        else{                 
-            int w = 2;                          
-        }  
-        z = 0;
-    } 
+int funcion (int a, int b);
+
+int funcion (int a, int b){
+    int c;
+    c = a + b;
+    return c;
+} 
+int x = 5, f = 10;
+
+
+

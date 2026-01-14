@@ -17,7 +17,7 @@ class EscuchaSintactico(ErrorListener):
             mensaje = f"[ERROR SINTACTICO] falta un paréntesis de cierre ')' antes de '{texto}' (línea {line})"
 
         #--- FALTA DE PARENTESIS DE APERTURA---
-        elif ("extraneous input" in msg and texto == ")") or ("missing '('" in msg):
+        elif ("extraneous input" in msg and texto == ")") or ("missing '('" in msg) or ("no viable alternative at input" and texto == ")"):
             mensaje = f"[ERROR SINTACTICO] falta un paréntesis de apertura '(' (línea {line})"
 
         #---FALTA DE PUNTO Y COMA---

@@ -15,6 +15,13 @@ class Escucha(compiladorListener):
         self.ts = TablaSimbolos()      #singleton de tabla de símbolos
         self.huboErrores = False       #flag para indicar si hubo errores semánticos
         self.indent = 0                #nivel de indentación para mensajes de consola
+        
+        #variables para manejo de funciones
+        self.nombre_funcion_actual = None
+        self.tipo_funcion_actual = None
+        self.argumentos_funcion_actual = []
+        self.lectura_argumentos = False
+        self.en_funcion = False       #para evitar la creacion de dobles contextos
 
         #bandera especial para manejar dependencias en declaraciones múltiples
         self.leyendoDeclaracion = False
@@ -39,6 +46,15 @@ class Escucha(compiladorListener):
                         print("\n--- ADVERTENCIA ---")
                         hay_advertencias = True
                     print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada")
+
+
+        #para marcar main como usada
+        for contexto in self.ts.historialCTX:
+            for id in contexto.simbolos.values():
+                if isinstance(id, Funcion) and id.nombre == "main":
+                    id.setUsado()
+                    break
+
 
         #imprime la tabla de símbolos final si no hubo errores
         if self.huboErrores:
@@ -251,21 +267,171 @@ class Escucha(compiladorListener):
             return None
         else:
             return None
+        
+    # =============================================================
+    # PROTOTIPOS DE FUNCIONES
+    # =============================================================
+    def exitPrototipo(self, ctx):
+        if not ctx.ID(): return
+        
+        tipo_retorno = ctx.tipo().getText() if ctx.tipo() else "void"
+        nombre_funcion = ctx.ID().getText()
+        
+        # 1. Extraer los argumentos que hay en el prototipo de la funcion
+        argumentos = []
+        if ctx.prototipoparametros():
+            argumentos = self.extraer_argumentos(ctx.prototipoparametros())
+            
+        # 2. Verificar si ya existe en la tabla de simbolos
+        simbolo_existente = self.ts.buscarSimbolo(nombre_funcion)
+    
+        if simbolo_existente is None:
+            #si no existe, lo creamos
+            
+            #instanciamos
+            nueva_funcion = Funcion(nombre_funcion, tipo_retorno)
+            
+            #configuramos atributos específicos
+            nueva_funcion.prototipado = True
+            nueva_funcion.setArgs(argumentos) #se cargan los argumentos extraidos
+            
+            #se agrega a la tabla
+            self.ts.addSimbolo(nueva_funcion)
+    
+            #formateamos la lista para que se vea como "(int a, int b)"
+            args_str = "(" + ", ".join(f"{arg['tipo']} {arg['nombre']}" for arg in argumentos) + ")"
+            
+            #impresion para verificar que si se definió el prototipo
+            print(" " * self.indent + f"[INFO]: Prototipo definido: {tipo_retorno} {nombre_funcion} {args_str};")
 
+        else:
+            #si ya existe, se marca como error
+            self.registrarError("semantico", f"'{nombre_funcion}' ya declarada en contexto actual")
+
+    # =============================================================
+    # DECLARACION DE FUNCIONES
+    # =============================================================
+    
+    def enterFuncion(self, ctx: compiladorParser.FuncionContext):
+        self.ts.addContexto()
+        self.en_funcion = True
+        
+        #inicializar variables de funcion
+        self.argumentos_funcion_actual = []
+        self.lectura_argumentos = True
+        
+            
+    def exitFuncion(self, ctx: compiladorParser.FuncionContext):
+        #obtener informacion de la funcion
+        if ctx.ID():
+            nombre_funcion = ctx.ID().getText()
+        else:
+            nombre_funcion = "None"
+        
+        linea = ctx.start.line
+        if ctx.tipo():
+            tipo_retorno = ctx.tipo().getText()
+        else:
+            tipo_retorno = ""
+        #procesar argumentos extraidos
+        if ctx.parametros():
+            self.argumentos_funcion_actual = self.extraer_argumentos(ctx.parametros())
+        
+        #buscamos si la funcion ya existia en la tabla (el prototipo)
+        funcion_previa = self.ts.buscarSimbolo(nombre_funcion)
+        
+        if funcion_previa and isinstance(funcion_previa, Funcion):
+            #Caso A: existe el prototipo y no ha sido implementada
+            if funcion_previa.prototipado and not funcion_previa.inicializado:
+                #verificar que los argumentos del prototipo y de la funcion coincidan
+                if not self.verificar_correspondencia_parametros(funcion_previa.args, self.argumentos_funcion_actual):
+                    self.registrarError("semantico", f"La definicion de '{nombre_funcion}' no coincide con su prototipo")
+                else:
+                    funcion_previa.inicializado = True
+                    funcion_previa.setArgs(self.argumentos_funcion_actual)
+                    print(f"Definición de función '{nombre_funcion}' completada.")
+            
+            
+            elif funcion_previa.inicializado:
+                #Caso B: ya estaba inicializada (error de redefinicion)
+                self.registrarError("semantico", f"'{nombre_funcion}' ya fue definida previamente")
+        else: 
+            #Caso C: No existia el prototipo (es una funcion nueva sin prototipo, puede pasar)
+            nueva_funcion = Funcion(
+                nombre_funcion,
+                tipo_retorno,
+                inicializado=True,
+                usado=False,
+                declarado=True,
+                args=self.argumentos_funcion_actual
+            )
+            if len(self.ts.contextos) > 1:
+                self.ts.contextos[-2].addSimbolo(nueva_funcion)
+            else:
+                self.ts.addSimbolo(nueva_funcion)    
+            print(f"DEBUG: Función '{nombre_funcion}' creada y guardada.")
+            
+        # Limpiar variables de función
+        self.nombre_funcion_actual = None
+        self.tipo_funcion_actual = None
+        self.argumentos_funcion_actual = []
+        self.lectura_argumentos = False
+                
+        self.en_funcion = False
+        self.ts.delContexto()
+        
+    # =============================================================
+    # PARAMETROS DE FUNCIONES
+    # =============================================================
+    def enterParametros(self, ctx: compiladorParser.ParametrosContext):
+        self.lectura_argumentos = True
+    def exitP(self, ctx: compiladorParser.PContext):
+        #para procesar cada parametro individual
+        if self.lectura_argumentos and ctx.tipo() and ctx.ID():
+            tipo = ctx.tipo().getText()
+            identificador = ctx.ID().getText()
+            
+            #agregar a la lista de argumentos
+            argumento_dict = {'tipo': tipo, 'nombre': identificador}
+            self.argumentos_funcion_actual.append(argumento_dict)
+            
+            #registrar como variable
+            if self.ts.buscarSimboloContexto(identificador) is None:
+                # Creamos el objeto Variable
+                var_arg = Variable(identificador, tipo, inicializado=True, declarado=True)
+                # CORRECCIÓN 2: Pasamos el OBJETO var_arg, no el string identificador
+                self.ts.addSimbolo(var_arg) 
+                
+                print(f"DEBUG: Argumento '{identificador}' registrado en contexto local")
+            else:
+                print(f"DEBUG: El argumento '{identificador}' ya existe en el contexto")
+                pass
+    def exitParametros(self, ctx: compiladorParser.ParametrosContext):
+        self.lectura_argumentos = False
+        if self.ts.contextos:
+            contexto_actual = self.ts.contextos[-1]
+    
     # =============================================================
     # CONTEXTOS DE BLOQUES (if, else, for, while)
     # =============================================================
     
     # ---- BLOQUE GENERAL ----
     def enterBloque(self, ctx):
-        """Abre un nuevo contexto (ámbito) en la Tabla de Símbolos."""
+        """Abre un nuevo contexto en la Tabla de Símbolos."""
+        #verifica si el padre del bloque es una funcion, si lo es, no se crea el contexto pq se crea en EnterFuncion
+        #si no estamos en funcion se crea contexto
+        if self.en_funcion:
+            return
+        
         self.ts.addContexto()
         #self.indent += 2
         #print(" " * (self.indent - 2) + "[INFO]: Entrando a bloque")
 
     def exitBloque(self, ctx):
         """Cierra el contexto actual y verifica variables no usadas localmente."""
-        self._verificarVariablesNoUsadasLocal() # Nota: función renombrada para mayor claridad
+        self._verificarVariablesNoUsadasLocal()
+        if isinstance(ctx.parentCtx, compiladorParser.FuncionContext):
+            return
         #print(" " * (self.indent - 2) + "[INFO]: Saliendo de bloque")
         self.ts.delContexto()
         #self.indent -= 2
@@ -418,3 +584,57 @@ class Escucha(compiladorListener):
         """
         self.huboErrores = True
         print(" " * self.indent + f"[ERROR {tipo.upper()}]: {msj}")
+        
+    def extraer_argumentos(self, ctx):
+        """
+        Recorre recursivamente la estructura de listaParametros o prototipoparametros
+        y devuelve una lista de diccionarios [{'tipo': 'int', 'nombre': 'a'}, ...]
+        """
+        args = []
+        nodo_actual = ctx
+
+        while nodo_actual:
+            # --- CASO 1: Definición de Función (usa la regla 'p') ---
+            #gramatica: parametros: p COMA parametros | p | ;
+            if hasattr(nodo_actual, 'p') and nodo_actual.p():
+                tipo = nodo_actual.p().tipo().getText()
+                nombre = nodo_actual.p().ID().getText()
+                args.append({'tipo': tipo, 'nombre': nombre})
+                
+                #avanzamos recursivamente
+                nodo_actual = nodo_actual.parametros()
+
+            # --- CASO 2: Prototipo (usa tipo ID directamente) ---
+            #gramatica: prototipoparametros: tipo ID COMA prototipoparametros | tipo ID | ;
+            elif hasattr(nodo_actual, 'tipo') and nodo_actual.tipo():
+                tipo = nodo_actual.tipo().getText()
+                nombre = nodo_actual.ID().getText()
+                args.append({'tipo': tipo, 'nombre': nombre})
+                
+                #avanzamos recursivamente
+                nodo_actual = nodo_actual.prototipoparametros()
+            
+            # --- CASO 3: Fin de la recursión (cadena vacía) ---
+            else:
+                nodo_actual = None
+        return args
+    
+    def verificar_correspondencia_parametros(self, args_prototipo, args_definicion):
+        """
+        Funcion para comparar los parametros escritos en el prototipo con los parametros
+        que se encuentran en la definicion de la funcion.
+        """
+        # 1. Verificar cantidad de argumentos
+        if len(args_prototipo) != len(args_definicion):
+            return False
+            
+        # 2. Verificar tipos ordenadamente
+        for arg_proto, arg_def in zip(args_prototipo, args_definicion):
+            tipo_proto = arg_proto['tipo']
+            tipo_def = arg_def['tipo']
+            if tipo_proto != tipo_def:
+                return False
+          
+        return True
+
+    

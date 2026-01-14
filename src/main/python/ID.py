@@ -35,13 +35,34 @@ class ID:
     
 class Variable(ID):
         #representa una variable del programa con su tipo de dato y estado
+    def __init__(self, nombre, tipoDato, inicializado=False, usado=False, declarado=True):
+        super().__init__(nombre, tipoDato)
+        self.inicializado = inicializado
+        self.usado = usado
+        self.declarado = declarado  
+     
+    
         pass
 class Funcion(ID):
-        #representa una funcion con el tipo que devuelve y lista de argumentos
-    def __init__(self, nombre, tipoDato, args = None):
+    # representa una funcion con el tipo que devuelve y lista de argumentos
+    def __init__(self, nombre, tipoDato, inicializado=False, usado=False, declarado=True, args=None):
+        # 1. Al padre (ID) solo le pasamos lo que sabe manejar: nombre y tipoDato
         super().__init__(nombre, tipoDato)
-        self.args = args if args else []
         
+        # 2. Sobrescribimos o asignamos los valores específicos aquí en la hija
+        self.inicializado = inicializado
+        self.usado = usado
+        self.declarado = declarado  # Este atributo es nuevo, ID no lo tenía
+        
+        self.prototipado = False
+        self.args = [] if args is None else args # Es mas seguro inicializar asi que con copy() si es None
+
+    def setArgs(self, args):
+        self.args = args.copy() if args else []
+
+    def setUsado(self):
+        self.usado = True
+
     def getListaArgs(self):
         return self.args
         
