@@ -349,7 +349,7 @@ class Escucha(compiladorListener):
                 else:
                     funcion_previa.inicializado = True
                     funcion_previa.setArgs(self.argumentos_funcion_actual)
-                    print(f"[INFO] Definición de función '{nombre_funcion}' completada.")
+                    print(f"[INFO]: Definición de función '{nombre_funcion}' completada.")
             
             
             elif funcion_previa.inicializado:
@@ -412,6 +412,27 @@ class Escucha(compiladorListener):
             contexto_actual = self.ts.contextos[-1]
     
     # =============================================================
+    # LLAMADA A FUNCIONES
+    # =============================================================
+    def exitLlamada(self, ctx: compiladorParser.LlamadaContext):
+        nombre_funcion = ctx.ID().getText()
+        simbolo_funcion = self.ts.buscarSimbolo(nombre_funcion)
+        
+        #verificar existencia
+        if not simbolo_funcion:
+            self.registrarError("semantico", f"La funcion '{nombre_funcion}' no ha sido declarada")
+            return
+        
+        #si existe, verificar que sea una funcion y no una variable con el mismo nombre
+        if not isinstance(simbolo_funcion, Funcion):
+            self.registrarError("semantico", f"'{nombre_funcion}' se está llamando como funcion pero es una variable")
+            return
+        
+        #existe y es funcion
+        simbolo_funcion.setUsado(True)
+        print(f"[INFO]: Llamada de función '{nombre_funcion}' detectada.")
+    
+    # =============================================================
     # CONTEXTOS DE BLOQUES (if, else, for, while)
     # =============================================================
     
@@ -440,23 +461,13 @@ class Escucha(compiladorListener):
     # # ---- IF ----
     # def enterIif(self, ctx):
     #     # La gestión del contexto se hace en enter/exitBloque si Iif envuelve a Bloque
-    #     self.indent += 2
-    #     print(" " * (self.indent - 2) + "[INFO]: Entrando a if")
 
     # def exitIif(self, ctx):
     #     # La verificación de uso se hace en exitBloque si la gramática está anidada
-    #     self.indent -= 2
-    #     print(" " * self.indent + "[INFO]: Saliendo de if")
-
+    
     # # ---- ELSE ----
-    # def enterIelse(self, ctx):
-    #     self.indent += 2
-    #     print(" " * (self.indent - 2) + "[INFO]: Entrando a else")
-
-    # def exitIelse(self, ctx):
-    #     self.indent -= 2
-    #     print(" " * self.indent + "[INFO]: Saliendo de else")
-
+          # Funciona de igual manera que el if
+          
     # ---- FOR ----
     def enterIfor(self, ctx):
         #self.indent += 2

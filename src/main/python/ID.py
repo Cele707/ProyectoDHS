@@ -60,7 +60,7 @@ class Funcion(ID):
     def setArgs(self, args):
         self.args = args.copy() if args else []
 
-    def setUsado(self):
+    def setUsado(self, valor=True):
         self.usado = True
 
     def getListaArgs(self):
