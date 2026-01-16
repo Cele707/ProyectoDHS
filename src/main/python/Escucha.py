@@ -210,6 +210,7 @@ class Escucha(compiladorListener):
     # *******************************
     # Uso de Variables en Expresiones
     # *******************************
+    
     def exitFactor(self, ctx: compiladorParser.FactorContext):
         """
         Detecta el uso de variables dentro de expresiones (factores).
@@ -485,9 +486,36 @@ class Escucha(compiladorListener):
     #aca juntamos metodos que utilizan los enter/exit que ayudan a que quede un poco mas prolijo el codigo
     def _tipoExp(self, ctx):
         """Función auxiliar para determinar el tipo de dato resultante de una expresión (recursiva)."""
+      
         if ctx is None:
             return None
-            
+        
+        #esto de aca está para arreglar el erro de que si tenemos
+        #int x = 10, y = 20
+        #bool z = x < y
+        #marca error de que a un bool no se le puede asignar un int, pero al tener < el resultado
+        #de la operacion deberia ser bool
+        nombre_clase = ctx.__class__.__name__
+        
+        
+        if "ExpORContext" in nombre_clase: #OR (||) -> expOR : expAND o ;
+            #solo devolvemos bool si la parte derecha 'o' tiene contenido real
+            if ctx.o() and ctx.o().getChildCount() > 0:
+                return "bool"
+                
+        elif "ExpANDContext" in nombre_clase:#AND (&&) -> expAND : expIGUAL a ;
+            if ctx.a() and ctx.a().getChildCount() > 0:
+                return "bool"
+                
+        elif "ExpIGUALContext" in nombre_clase:#IGUALDAD (== !=) -> expIGUAL : expCOMP i ;
+            if ctx.i() and ctx.i().getChildCount() > 0:
+                return "bool"
+                
+        elif "ExpCOMPContext" in nombre_clase:#COMPARACION (< >) -> expCOMP : exp c ;
+            if ctx.c() and ctx.c().getChildCount() > 0:
+                return "bool"
+        
+        #Reglas para factores    
         # Nodo ID: Se usa una variable
         if hasattr(ctx, 'ID') and ctx.ID():
             nombre = ctx.ID().getText()
@@ -504,14 +532,24 @@ class Escucha(compiladorListener):
             return var.getTipoDato()
             
             
-        # Nodo NUM: Literal entero
-        if hasattr(ctx, 'NUM') and ctx.NUM():
-            # Aquí podrías distinguir entre int y float si tu gramática lo soporta
-            return "int"
+        #Numeros enteros y flotantes
+        if hasattr(ctx, 'NUMERO') and ctx.NUMERO(): return "int" 
+        if hasattr(ctx, 'DECIMAL') and ctx.DECIMAL(): return "float"
+        #Booleanos literales
+        if hasattr(ctx, 'TRUE') and ctx.TRUE(): return "bool"
+        if hasattr(ctx, 'FALSE') and ctx.FALSE(): return "bool"
+        
+        #si es un paréntesis, reiniciamos la evaluación en la expresión interna
+        if hasattr(ctx, 'opal') and ctx.opal():
+            return self._tipoExp(ctx.opal())
             
         #verifica tipos de los hijos de la expresión (operadores)
         tipos = set()
         for i in range(ctx.getChildCount()):
+            child = ctx.getChild(i)
+            #ignoramos tokens terminales que no aportan tipo (como +, -, *)
+            if hasattr(child, 'getSymbol'): 
+                continue
             # Llamada recursiva a la expresión hija
             tipo_hijo = self._tipoExp(ctx.getChild(i))
             if tipo_hijo:
@@ -522,6 +560,8 @@ class Escucha(compiladorListener):
             return tipos.pop()
         elif len(tipos) > 1:
             #tipos incompatibles en operación (Ej: int + float)
+            if "float" in tipos and "int" in tipos and "bool" not in tipos:
+                return "float"
             self.registrarError("semantico", "Tipos incompatibles en expresión")
             return None
         else:

@@ -1,13 +1,7 @@
-int funcion (int a, int b);
-
-int funcion (int a, int b){
-    int c;
-    c = a + b;
-    return c;
-} 
-int x = 5, f = 10;
-int w = 20;
-f = funcion(w, x);
-
-
-
+int x;
+int y;
+bool z;
+    
+x = 10 + 5 * 2;
+y = (x - 5) / 3;
+z = x > y;
