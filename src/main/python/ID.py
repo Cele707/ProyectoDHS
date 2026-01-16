@@ -52,10 +52,10 @@ class Funcion(ID):
         # 2. Sobrescribimos o asignamos los valores específicos aquí en la hija
         self.inicializado = inicializado
         self.usado = usado
-        self.declarado = declarado  # Este atributo es nuevo, ID no lo tenía
+        self.declarado = declarado
         
         self.prototipado = False
-        self.args = [] if args is None else args # Es mas seguro inicializar asi que con copy() si es None
+        self.args = [] if args is None else args
 
     def setArgs(self, args):
         self.args = args.copy() if args else []

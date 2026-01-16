@@ -17,18 +17,15 @@ class Escucha(compiladorListener):
         self.indent = 0                #nivel de indentación para mensajes de consola
         
         #variables para manejo de funciones
-        self.nombre_funcion_actual = None
-        self.tipo_funcion_actual = None
         self.argumentos_funcion_actual = []
         self.lectura_argumentos = False
         self.en_funcion = False       #para evitar la creacion de dobles contextos
 
         #bandera especial para manejar dependencias en declaraciones múltiples
         self.leyendoDeclaracion = False
-        self.bufferDeclaracion = []    #no usado en la lógica actual, pero mantenido
 
     # =============================================================
-    # PROGRAMA PRINCIPAL
+    # 1. PROGRAMA PRINCIPAL Y BLOQUES
     # =============================================================
     def enterPrograma(self, ctx: compiladorParser.ProgramaContext):
         """Inicio del análisis."""
@@ -47,14 +44,12 @@ class Escucha(compiladorListener):
                         hay_advertencias = True
                     print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada")
 
-
         #para marcar main como usada
         for contexto in self.ts.historialCTX:
             for id in contexto.simbolos.values():
                 if isinstance(id, Funcion) and id.nombre == "main":
                     id.setUsado()
                     break
-
 
         #imprime la tabla de símbolos final si no hubo errores
         if self.huboErrores:
@@ -63,11 +58,31 @@ class Escucha(compiladorListener):
             print("[INFO]: Tabla de símbolos final:")
             self.ts.imprimirTS()
         print("[INFO]: Fin del parsing")
+    
+    def enterBloque(self, ctx):
+        """Abre un nuevo contexto en la Tabla de Símbolos."""
+        #solo creamos contexto si no estamos en funcion, porque funcion crea su propio contexto
+        if self.en_funcion:
+            return
+        self.ts.addContexto()
+        #self.indent += 2
+        #print(" " * (self.indent - 2) + "[INFO]: Entrando a bloque")
+
+    def exitBloque(self, ctx):
+        """Cierra el contexto actual y verifica variables no usadas localmente."""
+        self._verificarVariablesNoUsadasLocal()
+        if self.en_funcion:
+            return
+        self.ts.delContexto()
+        #print(" " * (self.indent - 2) + "[INFO]: Saliendo de bloque")
+        #self.indent -= 2
 
     # =============================================================
-    # DECLARACIONES
+    # GESTION DE VARIABLES (Declaracion, Asignacion, Uso)
     # =============================================================
-
+    # *************
+    # Declaraciones
+    # *************
     def enterDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
         """
         Activa la bandera de lectura de declaración.
@@ -76,7 +91,6 @@ class Escucha(compiladorListener):
         (ej: int a=1, b=a;).
         """
         self.leyendoDeclaracion = True
-        self.bufferDeclaracion = [] #se limpia, aunque no se usa en el chequeo semántico
 
     def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
         """
@@ -161,9 +175,9 @@ class Escucha(compiladorListener):
         #desactivar modo lectura de declaración
         self.leyendoDeclaracion = False
 
-    # =============================================================
-    # ASIGNACIONES
-    # =============================================================
+    # ************
+    # Asignaciones
+    # ************
     def exitAsignacion(self, ctx: compiladorParser.AsignacionContext):
         """Verifica que la variable destino exista y que la asignación sea compatible en tipos."""
         exp_asig_ctx = ctx.expASIG()
@@ -193,9 +207,9 @@ class Escucha(compiladorListener):
         simbolo.setUsado(True)
         print(" " * self.indent + f"[INFO]: Asignación realizada: '{nombre}' inicializado y usado")
 
-    # =============================================================
-    # USO DE VARIABLES EN EXPRESIONES
-    # =============================================================
+    # *******************************
+    # Uso de Variables en Expresiones
+    # *******************************
     def exitFactor(self, ctx: compiladorParser.FactorContext):
         """
         Detecta el uso de variables dentro de expresiones (factores).
@@ -222,55 +236,12 @@ class Escucha(compiladorListener):
             print(" " * self.indent + f"[INFO]: Uso de variable '{nombre}' detectado")
 
     # =============================================================
-    # EVALUACIÓN DE TIPOS DE EXPRESIONES (Recursiva)
+    # GESTION DE FUNCIONES (Prototipo, Declaracion,Parametros, Llamada)
     # =============================================================
-    def _tipoExp(self, ctx):
-        """Función auxiliar para determinar el tipo de dato resultante de una expresión (recursiva)."""
-        if ctx is None:
-            return None
-            
-        # Nodo ID: Se usa una variable
-        if hasattr(ctx, 'ID') and ctx.ID():
-            nombre = ctx.ID().getText()
-            var = self._verificarExistenciaVariable(nombre)
-            if var is None:
-                return None
-            #si NO estamos leyendo una declaración, reportar error de 'no inicializado'
-            if not self.leyendoDeclaracion:
-                if not var.getInicializado():
-                    self.registrarError("semantico", f"'{nombre}' usado sin inicializar")
-            
-            #la variable se marca como usada al ser parte de una expresión
-            var.setUsado(True) 
-            return var.getTipoDato()
-            
-            
-        # Nodo NUM: Literal entero
-        if hasattr(ctx, 'NUM') and ctx.NUM():
-            # Aquí podrías distinguir entre int y float si tu gramática lo soporta
-            return "int"
-            
-        #verifica tipos de los hijos de la expresión (operadores)
-        tipos = set()
-        for i in range(ctx.getChildCount()):
-            # Llamada recursiva a la expresión hija
-            tipo_hijo = self._tipoExp(ctx.getChild(i))
-            if tipo_hijo:
-                tipos.add(tipo_hijo)
-                
-        #si todos los hijos son del mismo tipo devuelve ese tipo (Ej: int + int = int)
-        if len(tipos) == 1:
-            return tipos.pop()
-        elif len(tipos) > 1:
-            #tipos incompatibles en operación (Ej: int + float)
-            self.registrarError("semantico", "Tipos incompatibles en expresión")
-            return None
-        else:
-            return None
-        
-    # =============================================================
-    # PROTOTIPOS DE FUNCIONES
-    # =============================================================
+    
+    # *********
+    # Prototipo
+    # *********
     def exitPrototipo(self, ctx):
         if not ctx.ID(): return
         
@@ -287,16 +258,11 @@ class Escucha(compiladorListener):
     
         if simbolo_existente is None:
             #si no existe, lo creamos
-            
-            #instanciamos
             nueva_funcion = Funcion(nombre_funcion, tipo_retorno)
-            
-            #configuramos atributos específicos
+
             nueva_funcion.prototipado = True
             nueva_funcion.setArgs(argumentos) #se cargan los argumentos extraidos
-            
-            #se agrega a la tabla
-            self.ts.addSimbolo(nueva_funcion)
+            self.ts.addSimbolo(nueva_funcion) #se agrega a la tabla
     
             #formateamos la lista para que se vea como "(int a, int b)"
             args_str = "(" + ", ".join(f"{arg['tipo']} {arg['nombre']}" for arg in argumentos) + ")"
@@ -308,9 +274,9 @@ class Escucha(compiladorListener):
             #si ya existe, se marca como error
             self.registrarError("semantico", f"'{nombre_funcion}' ya declarada en contexto actual")
 
-    # =============================================================
-    # DECLARACION DE FUNCIONES
-    # =============================================================
+    # ************************
+    # Declaracion de funciones
+    # ************************
     
     def enterFuncion(self, ctx: compiladorParser.FuncionContext):
         self.ts.addContexto()
@@ -319,16 +285,14 @@ class Escucha(compiladorListener):
         #inicializar variables de funcion
         self.argumentos_funcion_actual = []
         self.lectura_argumentos = True
-        
-            
+           
     def exitFuncion(self, ctx: compiladorParser.FuncionContext):
         #obtener informacion de la funcion
         if ctx.ID():
             nombre_funcion = ctx.ID().getText()
         else:
             nombre_funcion = "None"
-        
-        linea = ctx.start.line
+
         if ctx.tipo():
             tipo_retorno = ctx.tipo().getText()
         else:
@@ -351,7 +315,6 @@ class Escucha(compiladorListener):
                     funcion_previa.setArgs(self.argumentos_funcion_actual)
                     print(f"[INFO]: Definición de función '{nombre_funcion}' completada.")
             
-            
             elif funcion_previa.inicializado:
                 #Caso B: ya estaba inicializada (error de redefinicion)
                 self.registrarError("semantico", f"'{nombre_funcion}' ya fue definida previamente")
@@ -371,18 +334,16 @@ class Escucha(compiladorListener):
                 self.ts.addSimbolo(nueva_funcion)    
             print(f"[INFO]: Función '{nombre_funcion}' creada y guardada.")
             
-        # Limpiar variables de función
-        self.nombre_funcion_actual = None
-        self.tipo_funcion_actual = None
+        #limpiar variables de función
         self.argumentos_funcion_actual = []
         self.lectura_argumentos = False
                 
         self.en_funcion = False
         self.ts.delContexto()
         
-    # =============================================================
-    # PARAMETROS DE FUNCIONES
-    # =============================================================
+    # ***********************
+    # Parametros de funciones
+    # ***********************
     def enterParametros(self, ctx: compiladorParser.ParametrosContext):
         self.lectura_argumentos = True
     def exitP(self, ctx: compiladorParser.PContext):
@@ -397,11 +358,10 @@ class Escucha(compiladorListener):
             
             #registrar como variable
             if self.ts.buscarSimboloContexto(identificador) is None:
-                # Creamos el objeto Variable
+                #creamos el objeto Variable
                 var_arg = Variable(identificador, tipo, inicializado=True, declarado=True)
-                # CORRECCIÓN 2: Pasamos el OBJETO var_arg, no el string identificador
                 self.ts.addSimbolo(var_arg) 
-                
+
                 print(f"[INFO]: Argumento '{identificador}' registrado en contexto local")
             else:
                 self.registrarError("semantico", f"El argumento '{identificador}' ya existe en el contexto")
@@ -411,9 +371,9 @@ class Escucha(compiladorListener):
         if self.ts.contextos:
             contexto_actual = self.ts.contextos[-1]
     
-    # =============================================================
-    # LLAMADA A FUNCIONES
-    # =============================================================
+    # *******
+    # Llamada
+    # *******
     def exitLlamada(self, ctx: compiladorParser.LlamadaContext):
         nombre_funcion = ctx.ID().getText()
         simbolo_funcion = self.ts.buscarSimbolo(nombre_funcion)
@@ -435,40 +395,8 @@ class Escucha(compiladorListener):
     # =============================================================
     # CONTEXTOS DE BLOQUES (if, else, for, while)
     # =============================================================
-    
-    # ---- BLOQUE GENERAL ----
-    def enterBloque(self, ctx):
-        """Abre un nuevo contexto en la Tabla de Símbolos."""
-        #verifica si el padre del bloque es una funcion, si lo es, no se crea el contexto pq se crea en EnterFuncion
-        #si no estamos en funcion se crea contexto
-        if self.en_funcion:
-            return
+    # Tanto para if, else y while, la gestion del contexto se hace en enter/exitBloque
         
-        self.ts.addContexto()
-        #self.indent += 2
-        #print(" " * (self.indent - 2) + "[INFO]: Entrando a bloque")
-
-    def exitBloque(self, ctx):
-        """Cierra el contexto actual y verifica variables no usadas localmente."""
-        self._verificarVariablesNoUsadasLocal()
-        if isinstance(ctx.parentCtx, compiladorParser.FuncionContext):
-            return
-        #print(" " * (self.indent - 2) + "[INFO]: Saliendo de bloque")
-        self.ts.delContexto()
-        #self.indent -= 2
-        
-    
-    # # ---- IF ----
-    # def enterIif(self, ctx):
-    #     # La gestión del contexto se hace en enter/exitBloque si Iif envuelve a Bloque
-
-    # def exitIif(self, ctx):
-    #     # La verificación de uso se hace en exitBloque si la gramática está anidada
-    
-    # # ---- ELSE ----
-          # Funciona de igual manera que el if
-          
-    # ---- FOR ----
     def enterIfor(self, ctx):
         #self.indent += 2
         #print(" " * (self.indent - 2) + "[INFO]: Entrando a for")
@@ -551,18 +479,54 @@ class Escucha(compiladorListener):
 
                     var.setInicializado(True)
 
-    # # ---- WHILE ----
-    # def enterIwhile(self, ctx):
-    #     self.indent += 2
-    #     print(" " * (self.indent - 2) + "[INFO]: Entrando a while")
-
-    # def exitIwhile(self, ctx):
-    #     self.indent -= 2
-    #     print(" " * self.indent + "[INFO]: Saliendo de while")
-
     # =============================================================
     # MÉTODOS AUXILIARES
     # =============================================================
+    #aca juntamos metodos que utilizan los enter/exit que ayudan a que quede un poco mas prolijo el codigo
+    def _tipoExp(self, ctx):
+        """Función auxiliar para determinar el tipo de dato resultante de una expresión (recursiva)."""
+        if ctx is None:
+            return None
+            
+        # Nodo ID: Se usa una variable
+        if hasattr(ctx, 'ID') and ctx.ID():
+            nombre = ctx.ID().getText()
+            var = self._verificarExistenciaVariable(nombre)
+            if var is None:
+                return None
+            #si NO estamos leyendo una declaración, reportar error de 'no inicializado'
+            if not self.leyendoDeclaracion:
+                if not var.getInicializado():
+                    self.registrarError("semantico", f"'{nombre}' usado sin inicializar")
+            
+            #la variable se marca como usada al ser parte de una expresión
+            var.setUsado(True) 
+            return var.getTipoDato()
+            
+            
+        # Nodo NUM: Literal entero
+        if hasattr(ctx, 'NUM') and ctx.NUM():
+            # Aquí podrías distinguir entre int y float si tu gramática lo soporta
+            return "int"
+            
+        #verifica tipos de los hijos de la expresión (operadores)
+        tipos = set()
+        for i in range(ctx.getChildCount()):
+            # Llamada recursiva a la expresión hija
+            tipo_hijo = self._tipoExp(ctx.getChild(i))
+            if tipo_hijo:
+                tipos.add(tipo_hijo)
+                
+        #si todos los hijos son del mismo tipo devuelve ese tipo (Ej: int + int = int)
+        if len(tipos) == 1:
+            return tipos.pop()
+        elif len(tipos) > 1:
+            #tipos incompatibles en operación (Ej: int + float)
+            self.registrarError("semantico", "Tipos incompatibles en expresión")
+            return None
+        else:
+            return None
+        
     def _verificarVariablesNoUsadasLocal(self):
         """
         Recorre el contexto actual y muestra advertencias para variables
