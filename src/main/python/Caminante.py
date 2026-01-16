@@ -139,18 +139,18 @@ class Caminante(compiladorVisitor):
         return nombre_variable
     
     # ============================================
-    # EXPRESIONES
+    # EXPRESIONES con orden de precedencia
     # ============================================
-    # ===========================================
-    # NIVEL 1: OPAL (Entrada de expresiones lógicas)
-    # ===========================================
+    # *************
+    # NIVEL 1: OPAL
+    # *************
     def visitOpal(self, ctx: compiladorParser.OpalContext):
         # opal solo envuelve a expOR
         return self.visit(ctx.expOR())
 
-    # ===========================================
-    # NIVEL 2: OR (||)
-    # ===========================================
+    # ************
+    # NIVEL 2: OR
+    # ***********
     def visitExpOR(self, ctx: compiladorParser.ExpORContext):
         left = self.visit(ctx.expAND())
         if ctx.o():
@@ -158,7 +158,7 @@ class Caminante(compiladorVisitor):
         return left
 
     def visitO(self, ctx: compiladorParser.OContext, left=None):
-        # Si no hay más OR, devolvemos lo que traemos
+        #si no hay más OR, devolvemos lo que traemos
         if ctx.getChildCount() == 0:
             return left
         
@@ -168,15 +168,15 @@ class Caminante(compiladorVisitor):
             temp = self.temps.next_temporal_con_tipo(left, right, '||')
             self.codigo.append(f'{temp} = {left} || {right}')
             
-            # Recursividad por la derecha
+            #recursividad por la derecha
             if ctx.o():
                 return self.visitO(ctx.o(), temp)
             return temp
         return left
 
-    # ===========================================
-    # NIVEL 3: AND (&&)
-    # ===========================================
+    # ************
+    # NIVEL 3: AND
+    # ************
     def visitExpAND(self, ctx: compiladorParser.ExpANDContext):
         left = self.visit(ctx.expIGUAL())
         if ctx.a():
@@ -198,9 +198,9 @@ class Caminante(compiladorVisitor):
             return temp
         return left
 
-    # ===========================================
-    # NIVEL 4: IGUALDAD (==, !=)
-    # ===========================================
+    # *****************
+    # NIVEL 4: IGUALDAD
+    # *****************
     def visitExpIGUAL(self, ctx: compiladorParser.ExpIGUALContext):
         left = self.visit(ctx.expCOMP())
         if ctx.i():
@@ -225,11 +225,10 @@ class Caminante(compiladorVisitor):
             return temp
         return left
 
-    # ===========================================
-    # NIVEL 5: COMPARACIÓN (<, >, <=, >=)
-    # ===========================================
+    # ********************
+    # NIVEL 5: COMPARACIÓN
+    # ********************
     def visitExpCOMP(self, ctx: compiladorParser.ExpCOMPContext):
-        # Aquí saltamos a la aritmética (visitExp)
         left = self.visit(ctx.exp())
         if ctx.c():
             return self.visitC(ctx.c(), left)
@@ -246,7 +245,7 @@ class Caminante(compiladorVisitor):
         elif ctx.MAYORIG(): op = '>='
         
         if op:
-            right = self.visit(ctx.exp()) # Ojo: llamamos a exp() aquí
+            right = self.visit(ctx.exp()) #llamamos a exp()
             temp = self.temps.next_temporal_con_tipo(left, right, op)
             self.codigo.append(f'{temp} = {left} {op} {right}')
             
@@ -254,9 +253,9 @@ class Caminante(compiladorVisitor):
                 return self.visitC(ctx.c(), temp)
             return temp
         return left
-    # ===========================================
+    # ********************
     # NIVEL 6: EXPRESIONES (Suma y Resta)
-    # ===========================================
+    # ********************
     def visitExp(self, ctx: compiladorParser.ExpContext):
         # 1. Obtener el primer término (la izquierda)
         left = self.visit(ctx.term())
@@ -293,9 +292,9 @@ class Caminante(compiladorVisitor):
             return temp
         return left
 
-    # ===========================================
+    # *****************
     # NIVEL 7: TÉRMINOS (Multiplicación, División, Mod)
-    # ===========================================
+    # *****************
     def visitTerm(self, ctx: compiladorParser.TermContext):
         left = self.visit(ctx.factor())
         if ctx.t():
@@ -321,9 +320,9 @@ class Caminante(compiladorVisitor):
             return temp
         return left
 
-    # ===========================================
-    # NIVEL 8: FACTOR (El final de la cadena)
-    # ===========================================
+    # ***************
+    # NIVEL 8: FACTOR
+    # ***************
     def visitFactor(self, ctx: compiladorParser.FactorContext):
         # 1. Números y Literales
         if ctx.NUMERO():
@@ -341,20 +340,20 @@ class Caminante(compiladorVisitor):
             
         # 3. Expresiones entre paréntesis: ( 5 + 5 )
         elif ctx.PA():
-            # Volvemos a empezar la jerarquía desde arriba (opal)
+            #volvemos a empezar la jerarquía desde arriba (opal)
             return self.visit(ctx.opal())
             
         # 4. Llamadas a función
         elif ctx.llamada():
-            # Debemos implementar visitLlamada más abajo si no existe
+            #IMPLEMENTAR VISITLLAMADA
             return self.visit(ctx.llamada())
 
-        # 5. Negación Lógica (NOT)
+        # 5. NOT
         elif ctx.NOT():
             val = self.visit(ctx.factor())
             temp = self.temps.next_temporal("bool")
             self.codigo.append(f'{temp} = !{val}')
             return temp
 
-        # (Faltan INC y DEC, podemos agregarlos después)
+        #IMPLEMENTAR INC Y DEC
         return None
