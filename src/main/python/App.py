@@ -32,8 +32,6 @@ def main(argv):
         visitante = Caminante()
         visitante.visitPrograma(tree)
         
-        
-        
     #print(escucha)
     #print(tree.toStringTree(recog=parser))
 

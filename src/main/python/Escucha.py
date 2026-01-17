@@ -9,6 +9,7 @@ class Escucha(compiladorListener):
     Clase que implementa el Listener para el análisis semántico.
     Se encarga de construir la Tabla de Símbolos y detectar errores de contexto,
     declaración, inicialización, uso y compatibilidad de tipos.
+    También verifica consistencia entre funciones y prototipos
     """
     def __init__(self):
         super().__init__()
@@ -60,13 +61,10 @@ class Escucha(compiladorListener):
         print("[INFO]: Fin del parsing")
     
     def enterBloque(self, ctx):
-        """Abre un nuevo contexto en la Tabla de Símbolos."""
-        #solo creamos contexto si no estamos en funcion, porque funcion crea su propio contexto
+        """Abre un nuevo contexto en la Tabla de Símbolos. Excepto que estemos en una funcion"""
         if self.en_funcion:
             return
         self.ts.addContexto()
-        #self.indent += 2
-        #print(" " * (self.indent - 2) + "[INFO]: Entrando a bloque")
 
     def exitBloque(self, ctx):
         """Cierra el contexto actual y verifica variables no usadas localmente."""
@@ -74,8 +72,6 @@ class Escucha(compiladorListener):
         if self.en_funcion:
             return
         self.ts.delContexto()
-        #print(" " * (self.indent - 2) + "[INFO]: Saliendo de bloque")
-        #self.indent -= 2
 
     # =============================================================
     # GESTION DE VARIABLES (Declaracion, Asignacion, Uso)
@@ -98,86 +94,83 @@ class Escucha(compiladorListener):
         1. Recolección e inserción de símbolos (para que estén disponibles).
         2. Chequeo de compatibilidad de tipos en la inicialización (donde se usan las variables).
         """
+    def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
+        """Procesa una línea de declaración (ej: int a=1, b=a;)."""
         tipo = ctx.tipo().getText()
+        self._procesarDeclaraciones(tipo, ctx.ID(), ctx.inic(), ctx.listavar())
+        self.leyendoDeclaracion = False
 
-        #recolecta triples (nombre, tiene_inic, inic_ctx) del primer ID y de la lista recursiva
+    def exitForInicializacion(self, ctx: compiladorParser.ForInicializacionContext):
+        """Procesa declaraciones dentro del header de un for (ej: for(int i=0;...))."""
+        if ctx.tipo() and ctx.ID():
+            tipo = ctx.tipo().getText()
+            self._procesarDeclaraciones(tipo, ctx.ID(), ctx.inic(), ctx.listavar())
+
+    def _procesarDeclaraciones(self, tipo, primer_id, primer_inic, lista_var):
+        """
+        Método unificado para procesar listas de variables.
+        1. Recolecta todas las variables de la línea.
+        2. Las inserta en la TS.
+        3. Valida tipos de inicialización.
+        """
         vars_list = []
-        #primer ID
-        nombre0 = ctx.ID().getText()
-        inic0 = ctx.inic() if (ctx.inic() is not None and ctx.inic().getChildCount() > 0) else None
-        vars_list.append((nombre0, inic0 is not None, inic0))
+        
+        # 1. Agregar el primer elemento
+        nombre0 = primer_id.getText()
+        tiene_inic0 = (primer_inic is not None and primer_inic.getChildCount() > 0)
+        vars_list.append((nombre0, tiene_inic0, primer_inic))
 
-        #función recursiva sobre listavar (coma y ID siguiente)
-        def recolectar_listavar(lv, acumulador):
-            if lv is None:
-                return
-            if lv.ID() is not None:
-                inic_lv = lv.inic() if (lv.inic() is not None and lv.inic().getChildCount() > 0) else None
-                acumulador.append((lv.ID().getText(), inic_lv is not None, inic_lv))
-            # seguir la recursión
+        # 2. Recolectar recursivamente el resto (listavar)
+        def recolectar(lv, acc):
+            if lv is None: return
+            if lv.ID():
+                inic_lv = lv.inic()
+                tiene_inic = (inic_lv is not None and inic_lv.getChildCount() > 0)
+                acc.append((lv.ID().getText(), tiene_inic, inic_lv))
             if hasattr(lv, "listavar"):
-                recolectar_listavar(lv.listavar(), acumulador)
+                recolectar(lv.listavar(), acc)
 
-        recolectar_listavar(ctx.listavar(), vars_list)
+        recolectar(lista_var, vars_list)
 
-        # --------------------------------------------------
-        # FASE 1: Inserción de Símbolos (Orden de procesamiento: izquierda -> derecha)
-        # --------------------------------------------------
-        for nombre, tiene_inic, inic_ctx in vars_list:
+        # 3. Insercion en Tabla de Símbolos
+        for nombre, tiene_inic, _ in vars_list:
             if self.ts.buscarSimboloContexto(nombre):
                 self.registrarError("semantico", f"'{nombre}' ya declarado en contexto actual")
             else:
                 var = Variable(nombre, tipo)
-                #agregar a tabla ANTES de evaluar inicializadores posteriores
                 self.ts.addSimbolo(var)
-                print(" " * self.indent + f"[INFO]: Variable '{nombre}' de tipo '{tipo}' agregada"
-                                         + ( " (inicializada)" if tiene_inic else "" ))
+                msg_inic = " (inicializada)" if tiene_inic else ""
+                print(" " * self.indent + f"[INFO]: Variable '{nombre}' ({tipo}) agregada{msg_inic}")
 
-        # --------------------------------------------------
-        # FASE 2: Chequeo de Inicialización y Tipos
-        # --------------------------------------------------
+        # 4. Validacion de Tipos (Inicialización)
         for nombre, tiene_inic, inic_ctx in vars_list:
-            #obtener el símbolo recién insertado
             var = self.ts.buscarSimboloContexto(nombre)
             
-            if var and tiene_inic and inic_ctx is not None:
-                #intentamos obtener el contexto de la expresión dentro de inic
+            if var and tiene_inic:
+                #extraer expresion de valor
                 valor_ctx = None
-                
-                #acceso defensivo a la expresión (asumiendo opal() o el primer hijo)
-                if hasattr(inic_ctx, "opal") and inic_ctx.opal() is not None:
+                if hasattr(inic_ctx, "opal") and inic_ctx.opal():
                     valor_ctx = inic_ctx.opal()
                 elif inic_ctx.getChildCount() > 0:
-                    # buscar el primer hijo que sea la expresión de valor
-                    for i in range(inic_ctx.getChildCount()):
-                        ch = inic_ctx.getChild(i)
-                        if hasattr(ch, "getText"):
-                            valor_ctx = ch
-                            break
+                    valor_ctx = inic_ctx.getChild(0)
 
-                #evaluamos tipo del valor con chequeo de uso habilitado (leyendoDeclaracion=False)
+                #evaluar tipo (desactivando flag para permitir uso de otras vars)
                 prev_flag = self.leyendoDeclaracion
-                self.leyendoDeclaracion = False # Temporalmente desactivado para chequear uso
+                self.leyendoDeclaracion = False
                 try:
-                    tipo_valor = self._tipoExp(valor_ctx) if valor_ctx is not None else None
+                    tipo_valor = self._tipoExp(valor_ctx)
                 finally:
-                    # restaurar flag original
                     self.leyendoDeclaracion = prev_flag
 
-                #comprobación de compatibilidad de tipos (Ej: int = float)
+                #chequeo de compatibilidad
                 if tipo_valor and tipo != tipo_valor:
-                    self.registrarError("semantico",
-                                        f"Inicialización incompatible: '{nombre}' es {tipo} y se intenta inicializar con {tipo_valor}")
+                    #float = int es valido
+                    if not (tipo == "float" and tipo_valor == "int"):
+                        self.registrarError("semantico", 
+                            f"Inicialización incompatible: '{nombre}' es {tipo}, valor es {tipo_valor}")
 
-                #si no hubo error de tipo (o si hubo, para evitar errores en cascada), marcamos inicializada
                 var.setInicializado(True)
-                
-        #desactivar modo lectura de declaración
-        self.leyendoDeclaracion = False
 
-    # ************
-    # Asignaciones
-    # ************
     def exitAsignacion(self, ctx: compiladorParser.AsignacionContext):
         """Verifica que la variable destino exista y que la asignación sea compatible en tipos."""
         exp_asig_ctx = ctx.expASIG()
@@ -188,7 +181,7 @@ class Escucha(compiladorListener):
         nombre = exp_asig_ctx.ID().getText()
         valor_ctx = exp_asig_ctx.opal()
         
-        #verifica que la variable exista y obtén el simbolo
+        #verifica que la variable exista y obtiene el simbolo
         simbolo = self._verificarExistenciaVariable(nombre)
         if simbolo is None:
             return
@@ -199,17 +192,12 @@ class Escucha(compiladorListener):
         
         #compara el tipo de la variable destino con el tipo de la expresión
         if tipo_valor and tipo_destino != tipo_valor:
-            self.registrarError("semantico",
-                                f"Asignación incompatible: '{nombre}' es {tipo_destino} y se intenta asignar {tipo_valor}")
+            self.registrarError("semantico",f"Asignación incompatible: '{nombre}' es {tipo_destino} y se intenta asignar {tipo_valor}")
         
         #marca variable como inicializada y usada
         simbolo.setInicializado(True)
         simbolo.setUsado(True)
         print(" " * self.indent + f"[INFO]: Asignación realizada: '{nombre}' inicializado y usado")
-
-    # *******************************
-    # Uso de Variables en Expresiones
-    # *******************************
     
     def exitFactor(self, ctx: compiladorParser.FactorContext):
         """
@@ -239,25 +227,20 @@ class Escucha(compiladorListener):
     # =============================================================
     # GESTION DE FUNCIONES (Prototipo, Declaracion,Parametros, Llamada)
     # =============================================================
-    
-    # *********
-    # Prototipo
-    # *********
+   
     def exitPrototipo(self, ctx):
         if not ctx.ID(): return
         
         tipo_retorno = ctx.tipo().getText() if ctx.tipo() else "void"
         nombre_funcion = ctx.ID().getText()
         
-        # 1. Extraer los argumentos que hay en el prototipo de la funcion
+        #extraer los argumentos
         argumentos = []
         if ctx.prototipoparametros():
             argumentos = self.extraer_argumentos(ctx.prototipoparametros())
             
-        # 2. Verificar si ya existe en la tabla de simbolos
-        simbolo_existente = self.ts.buscarSimbolo(nombre_funcion)
-    
-        if simbolo_existente is None:
+        #verificar si ya existe en la ts
+        if not self.ts.buscarSimbolo(nombre_funcion):
             #si no existe, lo creamos
             nueva_funcion = Funcion(nombre_funcion, tipo_retorno)
 
@@ -274,16 +257,11 @@ class Escucha(compiladorListener):
         else:
             #si ya existe, se marca como error
             self.registrarError("semantico", f"'{nombre_funcion}' ya declarada en contexto actual")
-
-    # ************************
-    # Declaracion de funciones
-    # ************************
     
     def enterFuncion(self, ctx: compiladorParser.FuncionContext):
+        """Abre contexto de la funcion"""
         self.ts.addContexto()
         self.en_funcion = True
-        
-        #inicializar variables de funcion
         self.argumentos_funcion_actual = []
         self.lectura_argumentos = True
            
@@ -348,7 +326,7 @@ class Escucha(compiladorListener):
     def enterParametros(self, ctx: compiladorParser.ParametrosContext):
         self.lectura_argumentos = True
     def exitP(self, ctx: compiladorParser.PContext):
-        #para procesar cada parametro individual
+        """Procesa un parametro individual dentro de la definicion de la funcion"""
         if self.lectura_argumentos and ctx.tipo() and ctx.ID():
             tipo = ctx.tipo().getText()
             identificador = ctx.ID().getText()
@@ -358,11 +336,10 @@ class Escucha(compiladorListener):
             self.argumentos_funcion_actual.append(argumento_dict)
             
             #registrar como variable
-            if self.ts.buscarSimboloContexto(identificador) is None:
+            if not self.ts.buscarSimboloContexto(identificador):
                 #creamos el objeto Variable
                 var_arg = Variable(identificador, tipo, inicializado=True, declarado=True)
                 self.ts.addSimbolo(var_arg) 
-
                 print(f"[INFO]: Argumento '{identificador}' registrado en contexto local")
             else:
                 self.registrarError("semantico", f"El argumento '{identificador}' ya existe en el contexto")
@@ -372,9 +349,6 @@ class Escucha(compiladorListener):
         if self.ts.contextos:
             contexto_actual = self.ts.contextos[-1]
     
-    # *******
-    # Llamada
-    # *******
     def exitLlamada(self, ctx: compiladorParser.LlamadaContext):
         nombre_funcion = ctx.ID().getText()
         simbolo_funcion = self.ts.buscarSimbolo(nombre_funcion)
@@ -399,86 +373,15 @@ class Escucha(compiladorListener):
     # Tanto para if, else y while, la gestion del contexto se hace en enter/exitBloque
         
     def enterIfor(self, ctx):
-        #self.indent += 2
-        #print(" " * (self.indent - 2) + "[INFO]: Entrando a for")
         # El contexto del for (para 'i') DEBE abrirse en enterIfor si la gramática no tiene un bloque.
         # Si la gramática es for (...) instruccion, el ámbito de 'i' está en la instrucción/bloque.
         # Para simplificar, asumimos que el contexto se abre en enterIfor para la inicialización.
         self.ts.addContexto() 
-        #self.indent += 2 # Añadir indentación para el cuerpo del for
 
     def exitIfor(self, ctx):
         # Verifica las variables declaradas en el encabezado del for (como 'i')
         self._verificarVariablesNoUsadasLocal()
         self.ts.delContexto() # Cierra el contexto del for (donde se declaró 'i')
-        #self.indent -= 2
-        #print(" " * self.indent + "[INFO]: Saliendo de for")
-        #self.indent -= 2
-
-    # ---- Inicialización dentro del for (Ej: for (int i = 0; ...)) ----
-    def exitForInicializacion(self, ctx: compiladorParser.ForInicializacionContext):
-        """
-        Maneja la declaración de variables dentro del encabezado de un bucle 'for'.
-        Se usa la misma lógica de dos fases que en exitDeclaracion.
-        """
-        if ctx.tipo() and ctx.ID():
-            tipo = ctx.tipo().getText()
-
-            # --- FASE 1: Recolección e Inserción de Símbolos ---
-            vars_list = []
-            # Primer ID
-            nombre0 = ctx.ID().getText()
-            inic0 = ctx.inic() if (ctx.inic() is not None and ctx.inic().getChildCount() > 0) else None
-            vars_list.append((nombre0, inic0 is not None, inic0))
-
-            #función recursiva que recorre listavar
-            def recolectar_listavar(lv, acumulador):
-                if lv is None: return
-                if lv.ID() is not None:
-                    tiene_inic = (lv.inic() is not None and lv.inic().getChildCount() > 0)
-                    inic_lv = lv.inic() if tiene_inic else None
-                    acumulador.append((lv.ID().getText(), tiene_inic, inic_lv))
-                if hasattr(lv, "listavar"):
-                    recolectar_listavar(lv.listavar(), acumulador)
-
-            recolectar_listavar(ctx.listavar(), vars_list)
-
-            #inserción de simbolos
-            for nombre, inicializada, inic_ctx in vars_list:
-                if self.ts.buscarSimboloContexto(nombre):
-                    self.registrarError("semantico", f"'{nombre}' ya declarado en contexto actual (for)")
-                else:
-                    var = Variable(nombre, tipo)
-                    # agregar antes de evaluar inicializadores posteriores
-                    self.ts.addSimbolo(var)
-                    print(" " * self.indent +
-                          f"[INFO]: Variable '{nombre}' declarada dentro del for (tipo {tipo})"
-                          + (" (inicializada)" if inicializada else ""))
-
-            # --- FASE 2: Chequeo de Inicialización y Tipos ---
-            for nombre, inicializada, inic_ctx in vars_list:
-                var = self.ts.buscarSimboloContexto(nombre)
-                if var and inicializada and inic_ctx is not None:
-                    # obtener el ctx de la expresión de la misma forma defensiva
-                    valor_ctx = None
-                    if hasattr(inic_ctx, "opal") and inic_ctx.opal() is not None:
-                        valor_ctx = inic_ctx.opal()
-                    elif inic_ctx.getChildCount() > 0:
-                        valor_ctx = inic_ctx.getChild(0)
-
-                    #evaluación temporal con leyendoDeclaracion=False
-                    prev_flag = self.leyendoDeclaracion
-                    self.leyendoDeclaracion = False
-                    try:
-                        tipo_valor = self._tipoExp(valor_ctx) if valor_ctx is not None else None
-                    finally:
-                        self.leyendoDeclaracion = prev_flag
-
-                    if tipo_valor and tipo != tipo_valor:
-                        self.registrarError("semantico",
-                                            f"Inicialización incompatible en for: '{nombre}' es {tipo} y se intenta inicializar con {tipo_valor}")
-
-                    var.setInicializado(True)
 
     # =============================================================
     # MÉTODOS AUXILIARES
@@ -498,22 +401,15 @@ class Escucha(compiladorListener):
         nombre_clase = ctx.__class__.__name__
         
         
-        if "ExpORContext" in nombre_clase: #OR (||) -> expOR : expAND o ;
+        if "ExpORContext" in nombre_clase: #OR      expOR : expAND o ;
             #solo devolvemos bool si la parte derecha 'o' tiene contenido real
-            if ctx.o() and ctx.o().getChildCount() > 0:
-                return "bool"
-                
-        elif "ExpANDContext" in nombre_clase:#AND (&&) -> expAND : expIGUAL a ;
-            if ctx.a() and ctx.a().getChildCount() > 0:
-                return "bool"
-                
-        elif "ExpIGUALContext" in nombre_clase:#IGUALDAD (== !=) -> expIGUAL : expCOMP i ;
-            if ctx.i() and ctx.i().getChildCount() > 0:
-                return "bool"
-                
-        elif "ExpCOMPContext" in nombre_clase:#COMPARACION (< >) -> expCOMP : exp c ;
-            if ctx.c() and ctx.c().getChildCount() > 0:
-                return "bool"
+            if ctx.o() and ctx.o().getChildCount() > 0: return "bool"
+        elif "ExpANDContext" in nombre_clase:
+            if ctx.a() and ctx.a().getChildCount() > 0: return "bool"
+        elif "ExpIGUALContext" in nombre_clase:
+            if ctx.i() and ctx.i().getChildCount() > 0: return "bool"
+        elif "ExpCOMPContext" in nombre_clase:
+            if ctx.c() and ctx.c().getChildCount() > 0: return "bool"
         
         #Reglas para factores    
         # Nodo ID: Se usa una variable
@@ -530,7 +426,6 @@ class Escucha(compiladorListener):
             #la variable se marca como usada al ser parte de una expresión
             var.setUsado(True) 
             return var.getTipoDato()
-            
             
         #Numeros enteros y flotantes
         if hasattr(ctx, 'NUMERO') and ctx.NUMERO(): return "int" 
@@ -550,7 +445,7 @@ class Escucha(compiladorListener):
             #ignoramos tokens terminales que no aportan tipo (como +, -, *)
             if hasattr(child, 'getSymbol'): 
                 continue
-            # Llamada recursiva a la expresión hija
+            #llamada recursiva a la expresión hija
             tipo_hijo = self._tipoExp(ctx.getChild(i))
             if tipo_hijo:
                 tipos.add(tipo_hijo)
@@ -591,7 +486,6 @@ class Escucha(compiladorListener):
 
         return simbolo
 
-
     def registrarError(self, tipo, msj):
         """
         Registra un error semántico y marca el flag de errores.
@@ -602,34 +496,27 @@ class Escucha(compiladorListener):
         
     def extraer_argumentos(self, ctx):
         """
-        Recorre recursivamente la estructura de listaParametros o prototipoparametros
-        y devuelve una lista de diccionarios [{'tipo': 'int', 'nombre': 'a'}, ...]
+        Convierte la estructura recursiva de parametros en una lista plana
         """
         args = []
         nodo_actual = ctx
 
         while nodo_actual:
-            # --- CASO 1: Definición de Función (usa la regla 'p') ---
+            #CASO definicion (p)
             #gramatica: parametros: p COMA parametros | p | ;
             if hasattr(nodo_actual, 'p') and nodo_actual.p():
                 tipo = nodo_actual.p().tipo().getText()
                 nombre = nodo_actual.p().ID().getText()
                 args.append({'tipo': tipo, 'nombre': nombre})
-                
-                #avanzamos recursivamente
-                nodo_actual = nodo_actual.parametros()
+                nodo_actual = nodo_actual.parametros()#avanzamos recursivamente
 
-            # --- CASO 2: Prototipo (usa tipo ID directamente) ---
+            #CASO prototipo (tipo ID)
             #gramatica: prototipoparametros: tipo ID COMA prototipoparametros | tipo ID | ;
             elif hasattr(nodo_actual, 'tipo') and nodo_actual.tipo():
                 tipo = nodo_actual.tipo().getText()
                 nombre = nodo_actual.ID().getText()
                 args.append({'tipo': tipo, 'nombre': nombre})
-                
-                #avanzamos recursivamente
-                nodo_actual = nodo_actual.prototipoparametros()
-            
-            # --- CASO 3: Fin de la recursión (cadena vacía) ---
+                nodo_actual = nodo_actual.prototipoparametros()#avanzamos recursivamente
             else:
                 nodo_actual = None
         return args

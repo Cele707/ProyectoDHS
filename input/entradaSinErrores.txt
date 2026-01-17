@@ -1,7 +1,18 @@
-int x;
-int y;
-bool z;
+
+int a, b = 10, c;
+
+float pi = 3.14;
+float conversion = 50; 
+
+int x = 5, y = x; 
+
+int main() {
+    int acumulador = 0;
+
+    for (int i = 0, k = 10; i < 5; i++) {
+        acumulador = acumulador + i + k;
+    }
     
-x = 10 + 5 * 2;
-y = (x - 5) / 3;
-z = x > y;
+    a = 1;
+    c = 2;
+}

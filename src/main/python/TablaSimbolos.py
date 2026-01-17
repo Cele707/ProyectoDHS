@@ -3,12 +3,16 @@ from ID import ID, Variable, Funcion
 
 
 class TablaSimbolos:
+    """
+    Administrador central de identificadores
+    Maneja una pila de contextos para soportar anidamiento logico
+    """
     _instance = None  # atributo de clase para singleton
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(TablaSimbolos, cls).__new__(cls)
-            cls._instance.contextos = []      # Pila de contextos actuales
+            cls._instance.contextos = []      # Pila de contextos activos
             cls._instance.historialCTX = []   # Historial de todos los contextos creados
             cls._instance.addContexto()       # Crear el contexto global (nivel 0)
         return cls._instance
@@ -53,7 +57,7 @@ class TablaSimbolos:
         print("\n[INFO]: Tabla de símbolos final:")
         for idx, contexto in enumerate(self.historialCTX):
             print(f"--- Contexto #{idx} (nivel {contexto.nivel}) ---")
-            
+            #encabezado
             print(f"{'Funcion':<30} {'Variable':<20} {'Tipo':<10} {'Inicializado':<12} {'Usado':<6}")
 
             if not contexto.simbolos:

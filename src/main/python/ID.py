@@ -1,32 +1,35 @@
 class ID:
-    #cuando se crea una clase 
+    """
+    Clase base para cualquier identificador en el compilador.  
+    """
     def __init__(self, nombre:str, tipoDato: str):
         self.nombre = nombre
         self.tipoDato = tipoDato
         self.inicializado = False
         self.usado = False
+        self.declarado = True
     
     #=================
     #getters y setters
     #=================
-    def getNombre(self):
+    def getNombre(self) -> str:
         return self.nombre
     
-    def getTipoDato(self):
+    def getTipoDato(self) -> str:
         return self.tipoDato
     
     #valor = True lo pone como True por defecto si no se especifica pero al tener el valor y no ponerlo
     #directamente en self.inicializado permite poner False si se llega a necesitar en algun caso
-    def setInicializado(self, valor = True):
+    def setInicializado(self, valor: bool = True):
         self.inicializado = valor
         
-    def getInicializado(self):
+    def getInicializado(self) -> bool:
         return self.inicializado
     
-    def setUsado(self, valor= True):
+    def setUsado(self, valor:bool = True):
         self.usado = valor
         
-    def getUsado(self):
+    def getUsado(self)-> bool:
         return self.usado
     
     #=========================
@@ -34,35 +37,31 @@ class ID:
     #=========================
     
 class Variable(ID):
-        #representa una variable del programa con su tipo de dato y estado
+    """Representa una variable, hereda todo de ID"""
     def __init__(self, nombre, tipoDato, inicializado=False, usado=False, declarado=True):
         super().__init__(nombre, tipoDato)
         self.inicializado = inicializado
         self.usado = usado
         self.declarado = declarado  
-     
-    
-        pass
-class Funcion(ID):
-    # representa una funcion con el tipo que devuelve y lista de argumentos
-    def __init__(self, nombre, tipoDato, inicializado=False, usado=False, declarado=True, args=None):
-        # 1. Al padre (ID) solo le pasamos lo que sabe manejar: nombre y tipoDato
-        super().__init__(nombre, tipoDato)
         
-        # 2. Sobrescribimos o asignamos los valores específicos aquí en la hija
+class Funcion(ID):
+    """Representa una funcion, ademas de lo basico tambien almacena los argumentos y si fue prototipada"""
+    def __init__(self, nombre, tipoDato, inicializado=False, usado=False, declarado=True, args=None):
+        super().__init__(nombre, tipoDato)
         self.inicializado = inicializado
         self.usado = usado
         self.declarado = declarado
         
         self.prototipado = False
-        self.args = [] if args is None else args
+        self.args = args.copy() if args else []
 
-    def setArgs(self, args):
+    def setArgs(self, args:list):
+        """Asigna la lista de argumentos de la funcion"""
         self.args = args.copy() if args else []
 
     def setUsado(self, valor=True):
         self.usado = True
 
-    def getListaArgs(self):
+    def getListaArgs(self)-> list:
         return self.args
         

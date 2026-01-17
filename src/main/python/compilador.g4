@@ -106,6 +106,8 @@ instruccion : asignacion
             | prototipo
             | funcion
             | llamada PYC
+            | ID INC PYC
+            | ID DEC PYC
             ;
 
 //bloque = {...} --> agrupa varias instrucciones
