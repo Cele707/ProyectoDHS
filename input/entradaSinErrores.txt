@@ -1,5 +1,5 @@
 
-int a, b = 10, c;
+int u, a = 10, c;
 int suma(int a, int b);
 
 int x = 5, y = x; 
