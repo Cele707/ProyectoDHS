@@ -1,21 +1,27 @@
+int a = 10 + 20; 
+int b = 5 * 4;
 
-int u, a = 10, c;
 int suma(int a, int b);
 
-int x = 5, y = x; 
-
 int main() {
-    int acumulador = 0;
 
-    for (int i = 0, k = 10; i < 5; i++) {
-        acumulador = suma(i,k);
+    int muerta1 = 100;
+    int muerta2 = muerta1;
+    int muerta3 = muerta2;
+
+    int acumulador = 0;
+    int prueba_copia = 1000 + 500;
+
+    if (1 != 2 && 10 > 5) { 
+        int c = 100 / 2;
     }
-    
-    a = 1;
-    c = 2;
+
+    for (int i = 0; i < 5; i++) {
+        acumulador = suma(i, 5 + 5); 
+    }
 }
 
 int suma (int a, int b){
-    int c = a + b;
-    return c;
+    int basura = 999; 
+    return a + b;
 }

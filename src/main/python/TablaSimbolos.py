@@ -83,3 +83,32 @@ class TablaSimbolos:
                     print(f"{col_funcion:<30} {col_variable:<20} {simbolo.tipoDato:<10} {str(simbolo.inicializado):<12} {str(simbolo.usado):<6}")
 
             print("\n")
+    
+    def generarArchivo(self, nombre_archivo="TablaDeSimbolos.txt"):
+        #funciona igual que imprimirTS nada mas que ahora lo imprime en un archivo
+        """Genera un archivo de texto con el contenido de la tabla de símbolos"""
+        with open(nombre_archivo, "w") as f:
+            
+            for idx, contexto in enumerate(self.historialCTX):
+                f.write(f"\n--- Contexto #{idx} (nivel {contexto.nivel}) ---\n")
+                f.write(f"{'Funcion':<30} {'Variable':<20} {'Tipo':<10} {'Inicializado':<12} {'Usado':<6}\n")
+                f.write("-" * 85 + "\n")
+
+                if not contexto.simbolos:
+                    f.write("vacío\n")
+                else:
+                    for nombre, simbolo in contexto.simbolos.items():
+                        col_funcion = ""
+                        col_variable = ""
+                        
+                        if isinstance(simbolo, Funcion):
+                            args_str = "(" + ", ".join(f"{arg['tipo']} {arg['nombre']}" for arg in simbolo.args) + ")"
+                            col_funcion = f"{nombre} {args_str}"
+                            col_variable = "-"
+                        
+                        elif isinstance(simbolo, Variable):
+                            col_funcion = "-"
+                            col_variable = nombre
+        
+                        f.write(f"{col_funcion:<30} {col_variable:<20} {simbolo.tipoDato:<10} {str(simbolo.inicializado):<12} {str(simbolo.usado):<6}\n")
+            

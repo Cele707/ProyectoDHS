@@ -1,0 +1,30 @@
+
+--- Contexto #0 (nivel 0) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
+-                              a                    int        True         False 
+-                              b                    int        True         False 
+suma (int a, int b)            -                    int        True         True  
+main ()                        -                    int        True         True  
+
+--- Contexto #1 (nivel 1) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
+-                              muerta1              int        True         True  
+-                              muerta2              int        True         True  
+-                              muerta3              int        True         False 
+-                              acumulador           int        True         True  
+-                              prueba_copia         int        True         False 
+-                              c                    int        True         False 
+
+--- Contexto #2 (nivel 2) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
+-                              i                    int        True         True  
+
+--- Contexto #3 (nivel 1) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
+-                              a                    int        True         True  
+-                              b                    int        True         True  
+-                              basura               int        True         False 

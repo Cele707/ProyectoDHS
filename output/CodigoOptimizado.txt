@@ -1,0 +1,22 @@
+a = 30
+b = 20
+label main
+t3 = 1
+t4 = 1
+t5 = t3 && t4
+ifnot t5 jmp L0
+label L0
+i = 0
+label L1
+t7 = i < 5
+ifnot t7 jmp L2
+t8 = 10
+param i
+param t8
+acumulador = call suma, 2
+i = i + 1
+jmp L1
+label L2
+label suma
+t11 = a + b
+return t11
