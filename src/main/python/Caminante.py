@@ -215,27 +215,27 @@ class Caminante(compiladorVisitor):
     
     def visitForInicializacion(self, ctx: compiladorParser.ForInicializacionContext):
         """
-        Maneja la inicialización del for
-        1. tipo ID inic listavar  (declaracion: int i=0, k=10)
-        2. expASIG listaExpASIG   (asignacion: i=0, k=10)
+        Maneja la inicializacion del for
+        1. declaraciones: tipo ID inic listavar           ej: int i=0, k=10)
+        2. asignaciones: expASIG listaExpASIG             ej: i=0, k=10)
         """
-        # CASO 1: Declaración (tiene tipo) 
+        # CASO 1: declaracion 
         if ctx.tipo():
-            # Procesamos la primera variable (ej: i = 0)
+            #procesamos la primera variable
             if ctx.inic() and ctx.inic().getChildCount() > 0:
                 nombre = ctx.ID().getText()
                 val = self.visit(ctx.inic().opal())
                 self.codigo.append(f"{nombre} = {val}")
             
-            # Procesamos el resto de la lista (ej: , k = 10)
+            #procesamos el resto de la lista
             if ctx.listavar():
                 self.visit(ctx.listavar())
 
-        # CASO 2: Asignación de variables existentes (sin tipo)
+        # CASO 2: asignaciones de variables existentes
         elif ctx.expASIG():
-            self.visit(ctx.expASIG()) # Primera asignación
+            self.visit(ctx.expASIG()) #primera asignación
             
-            # Resto de asignaciones
+            #resto de asignaciones
             if ctx.listaExpASIG():
                 self.visit(ctx.listaExpASIG())
                 
@@ -243,25 +243,25 @@ class Caminante(compiladorVisitor):
 
     def visitListavar(self, ctx: compiladorParser.ListavarContext):
         """
-        Maneja la recursividad de variables: , y = 20, z = 30...
+        Maneja la recursividad de variables en una declaracion, ej int x = 5, z = 6...
         """
-        # Si tiene hijos, procesamos (si no, es epsilon y termina)
+        #si tiene hijos, procesamos
         if ctx.getChildCount() > 0:
             nombre = ctx.ID().getText()
             
-            # Si hay inicialización (inic no está vacío)
+            #si hay inicializacion
             if ctx.inic() and ctx.inic().getChildCount() > 0:
                 val = self.visit(ctx.inic().opal())
                 self.codigo.append(f"{nombre} = {val}")
             
-            # Recursividad: visitamos el siguiente nodo listavar
+            #recusrividad para visitar los siguientes nodos
             if ctx.listavar():
                 self.visit(ctx.listavar())
         return None
 
     def visitListaExpASIG(self, ctx: compiladorParser.ListaExpASIGContext):
         """
-        Maneja lista de asignaciones simples: , y = 20...
+        Maneja la recursividad de variables en variables ya definidas, ej for (i = 5, z = 6,..)
         """
         if ctx.expASIG():
             self.visit(ctx.expASIG())
