@@ -83,4 +83,3 @@ class TablaSimbolos:
                     print(f"{col_funcion:<30} {col_variable:<20} {simbolo.tipoDato:<10} {str(simbolo.inicializado):<12} {str(simbolo.usado):<6}")
 
             print("\n")
-            

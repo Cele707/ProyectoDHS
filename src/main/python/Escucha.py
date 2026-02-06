@@ -76,9 +76,6 @@ class Escucha(compiladorListener):
     # =============================================================
     # GESTION DE VARIABLES (Declaracion, Asignacion, Uso)
     # =============================================================
-    # *************
-    # Declaraciones
-    # *************
     def enterDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
         """
         Activa la bandera de lectura de declaración.
@@ -88,12 +85,6 @@ class Escucha(compiladorListener):
         """
         self.leyendoDeclaracion = True
 
-    def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
-        """
-        Maneja la declaración de variables. Se realiza en dos pasadas implícitas:
-        1. Recolección e inserción de símbolos (para que estén disponibles).
-        2. Chequeo de compatibilidad de tipos en la inicialización (donde se usan las variables).
-        """
     def exitDeclaracion(self, ctx: compiladorParser.DeclaracionContext):
         """Procesa una línea de declaración (ej: int a=1, b=a;)."""
         tipo = ctx.tipo().getText()
@@ -108,7 +99,7 @@ class Escucha(compiladorListener):
 
     def _procesarDeclaraciones(self, tipo, primer_id, primer_inic, lista_var):
         """
-        Método unificado para procesar listas de variables.
+        Método para procesar listas de variables tanto en exitDeclaracion como en exitForInicializacion.
         1. Recolecta todas las variables de la línea.
         2. Las inserta en la TS.
         3. Valida tipos de inicialización.
@@ -419,7 +410,7 @@ class Escucha(compiladorListener):
             if var is None:
                 return None
             #si NO estamos leyendo una declaración, reportar error de 'no inicializado'
-            if not self.leyendoDeclaracion:
+            if isinstance(var, Variable) and not self.leyendoDeclaracion:
                 if not var.getInicializado():
                     self.registrarError("semantico", f"'{nombre}' usado sin inicializar")
             

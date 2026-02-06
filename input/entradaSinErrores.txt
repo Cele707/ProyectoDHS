@@ -1,8 +1,6 @@
 
 int a, b = 10, c;
-
-float pi = 3.14;
-float conversion = 50; 
+int suma(int a, int b);
 
 int x = 5, y = x; 
 
@@ -10,9 +8,14 @@ int main() {
     int acumulador = 0;
 
     for (int i = 0, k = 10; i < 5; i++) {
-        acumulador = acumulador + i + k;
+        acumulador = suma(i,k);
     }
     
     a = 1;
     c = 2;
+}
+
+int suma (int a, int b){
+    int c = a + b;
+    return c;
 }
