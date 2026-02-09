@@ -3,6 +3,8 @@
 Funcion                        Variable             Tipo       Inicializado Usado 
 -------------------------------------------------------------------------------------
 -                              a                    int        True         False 
+-                              y                    int        True         True  
+-                              z                    int        True         False 
 -                              b                    int        True         False 
 suma (int a, int b)            -                    int        True         True  
 main ()                        -                    int        True         True  
@@ -10,21 +12,44 @@ main ()                        -                    int        True         True
 --- Contexto #1 (nivel 1) ---
 Funcion                        Variable             Tipo       Inicializado Usado 
 -------------------------------------------------------------------------------------
+vacío
+
+--- Contexto #2 (nivel 2) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
 -                              muerta1              int        True         True  
 -                              muerta2              int        True         True  
 -                              muerta3              int        True         False 
 -                              acumulador           int        True         True  
 -                              prueba_copia         int        True         False 
+
+--- Contexto #3 (nivel 3) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
 -                              c                    int        True         False 
 
---- Contexto #2 (nivel 2) ---
+--- Contexto #4 (nivel 3) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
+-                              c                    int        True         False 
+
+--- Contexto #5 (nivel 3) ---
 Funcion                        Variable             Tipo       Inicializado Usado 
 -------------------------------------------------------------------------------------
 -                              i                    int        True         True  
 
---- Contexto #3 (nivel 1) ---
+--- Contexto #6 (nivel 4) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
+vacío
+
+--- Contexto #7 (nivel 1) ---
 Funcion                        Variable             Tipo       Inicializado Usado 
 -------------------------------------------------------------------------------------
 -                              a                    int        True         True  
 -                              b                    int        True         True  
+
+--- Contexto #8 (nivel 2) ---
+Funcion                        Variable             Tipo       Inicializado Usado 
+-------------------------------------------------------------------------------------
 -                              basura               int        True         False 

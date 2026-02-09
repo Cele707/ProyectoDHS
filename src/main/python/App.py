@@ -20,12 +20,12 @@ def main(argv):
     
     #se elimina el ErrorListener default
     #manejo de errores sintacticos
-    parser.removeErrorListeners()
     errorSintactico = EscuchaSintactico()
+    parser.removeErrorListeners()
     parser.addErrorListener(errorSintactico)
     
     #manejo de errores semanticos
-    escucha = Escucha()
+    escucha = Escucha(errorSintactico)
     parser.addParseListener(escucha)
     tree = parser.programa()
     
@@ -56,7 +56,7 @@ def main(argv):
             pass
         with open("output/TablaDeSimbolos.txt", "w") as f:
             pass
-        with open("CodigoOptimizado.txt", "w") as f:
+        with open("output/CodigoOptimizado.txt", "w") as f:
             pass
         
     #print(escucha)

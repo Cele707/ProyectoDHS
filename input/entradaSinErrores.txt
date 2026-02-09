@@ -1,5 +1,6 @@
 int a = 10 + 20; 
-int b = 5 * 4;
+int y = 0, z = y;
+int b = 5 * 4 + 3;
 
 int suma(int a, int b);
 
@@ -14,6 +15,8 @@ int main() {
 
     if (1 != 2 && 10 > 5) { 
         int c = 100 / 2;
+    } else {
+        int c = 100 * 2;
     }
 
     for (int i = 0; i < 5; i++) {

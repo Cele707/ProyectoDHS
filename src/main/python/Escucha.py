@@ -11,11 +11,13 @@ class Escucha(compiladorListener):
     declaración, inicialización, uso y compatibilidad de tipos.
     También verifica consistencia entre funciones y prototipos
     """
-    def __init__(self):
+    def __init__(self, escucha_sintactico=None):
         super().__init__()
         self.ts = TablaSimbolos()      #singleton de tabla de símbolos
         self.huboErrores = False       #flag para indicar si hubo errores semánticos
         self.indent = 0                #nivel de indentación para mensajes de consola
+        
+        self.sintactico = escucha_sintactico #referencia al otro listener
         
         #variables para manejo de funciones
         self.argumentos_funcion_actual = []
@@ -51,9 +53,12 @@ class Escucha(compiladorListener):
                 if isinstance(id, Funcion) and id.nombre == "main":
                     id.setUsado()
                     break
-
+        errores_sintacticos = False
+        if self.sintactico and len(self.sintactico.errores) > 0:
+            errores_sintacticos = True
+            
         #imprime la tabla de símbolos final si no hubo errores
-        if self.huboErrores:
+        if self.huboErrores or errores_sintacticos:
             print("[INFO]: No se puede generar tabla de símbolos debido a errores")
         else:
             print("[INFO]: Tabla de símbolos final:")
@@ -62,15 +67,15 @@ class Escucha(compiladorListener):
     
     def enterBloque(self, ctx):
         """Abre un nuevo contexto en la Tabla de Símbolos. Excepto que estemos en una funcion"""
-        if self.en_funcion:
-            return
+        #if self.en_funcion:
+        #    return
         self.ts.addContexto()
 
     def exitBloque(self, ctx):
         """Cierra el contexto actual y verifica variables no usadas localmente."""
         self._verificarVariablesNoUsadasLocal()
-        if self.en_funcion:
-            return
+        #if self.en_funcion:
+        #    return
         self.ts.delContexto()
 
     # =============================================================

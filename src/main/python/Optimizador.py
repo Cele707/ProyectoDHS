@@ -103,10 +103,10 @@ class Optimizador:
             linea_actual = self.codigo[i]
             linea_anterior = self.codigo[i-1]
 
-            #parseamos linea actual: DESTINO = ORIGEN
+            #parseamos linea actual: dest = src
             parts_act = [p.strip() for p in linea_actual.split('=')]
             
-            #verificamos si es una asignacion simple (sin +,-, call, etc)
+            #separamos las dos partes asignaciones
             if len(parts_act) == 2 and 'call' not in linea_actual:
                 dest, src = parts_act[0], parts_act[1]
                 
@@ -211,7 +211,7 @@ class Optimizador:
             c2 = self.propagacion_copia()
             c3 = self.eliminacion_codigo_muerto()
             
-            # Si en una pasada completa no hubo ningún cambio, terminamos
+            #Si en una pasada completa no hubo ningun cambio, terminamos
             if not (c1 or c2 or c3):
                 break
             iteracion += 1
@@ -219,7 +219,3 @@ class Optimizador:
         print("==============================\n")
         self.guardar_codigo()
 
-# Bloque para probarlo independientemente si se ejecuta este archivo
-if __name__ == '__main__':
-    opt = Optimizador()
-    opt.ejecutar()
