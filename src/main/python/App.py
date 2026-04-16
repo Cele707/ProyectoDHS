@@ -58,7 +58,7 @@ def main(argv):
             pass
         with open("output/CodigoOptimizado.txt", "w") as f:
             pass
-        
+    
     #print(escucha)
     #print(tree.toStringTree(recog=parser))
 

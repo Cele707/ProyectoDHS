@@ -26,9 +26,6 @@
       <!-- ultima version Agosto 2021 -->
       <version>4.9</version>
     </dependency>
-  <dependencies>
-
-  <dependencies>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
