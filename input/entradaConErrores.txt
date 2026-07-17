@@ -1,3 +1,13 @@
+int suma(int a, int b);
+
+int main() {
+    int resultado = suma(1, TRUE);
+}
+
+int suma(int a, int b) {
+    return a + b;
+}
+
 int a = 5, b = 5, c = 5;
 int d = a * b + c);
 if (b == c{

@@ -11,7 +11,7 @@ Ejecucion rapida (Python)
 2. Activar entorno virtual:
 	source .venv/bin/activate
 3. Instalar dependencias:
-	pip install antlr4-python3-runtime==4.9
+		pip install antlr4-python3-runtime==4.13.1
 4. Ejecutar el compilador:
 	.venv/bin/python src/main/python/App.py
 
@@ -23,6 +23,7 @@ Salida esperada
 - output/CodigoIntermedio.txt
 - output/CodigoOptimizado.txt
 - output/TablaDeSimbolos.txt
+- output/ReporteErrores.txt (se genera cuando hay errores sintácticos o semánticos)
 
 Compilar modulo Java (opcional)
 - mvn clean test

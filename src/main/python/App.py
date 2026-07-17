@@ -8,6 +8,22 @@ from EscuchaSintactico import EscuchaSintactico
 from TablaSimbolos import TablaSimbolos
 from Optimizador import Optimizador
 
+def escribir_reporte_errores(errores_sintacticos, errores_semanticos):
+    errores = []
+    if errores_sintacticos:
+        errores.extend(errores_sintacticos)
+    if errores_semanticos:
+        errores.extend(errores_semanticos)
+
+    with open("output/ReporteErrores.txt", "w") as f:
+        if not errores:
+            return
+
+        f.write("REPORTE DE ERRORES\n")
+        f.write("=" * 20 + "\n\n")
+        for error in errores:
+            f.write(error + "\n")
+
 def main(argv):
     #archivo = "input/entradaConErrores.txt"
     archivo = "input/entradaSinErrores.txt"
@@ -48,9 +64,11 @@ def main(argv):
         
         opt = Optimizador("output/CodigoIntermedio.txt", "output/CodigoOptimizado.txt")
         opt.ejecutar()
+        escribir_reporte_errores([], [])
         
     else:
         print("\n HUBO ERRORES EN LA COMPILACION, NO SE GENERARON LOS ARCHIVOS")
+        escribir_reporte_errores(errorSintactico.errores, escucha.errores)
         #para eliminar contenido de ejecuciones anteriores
         with open("output/CodigoIntermedio.txt", "w") as f:
             pass

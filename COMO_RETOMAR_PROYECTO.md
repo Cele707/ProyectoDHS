@@ -50,7 +50,7 @@ Activa primero la venv y reinstala:
 
 ```bash
 source .venv/bin/activate
-pip install antlr4-python3-runtime==4.9
+pip install antlr4-python3-runtime==4.13.1
 ```
 
 ## Opcional: dejar VS Code apuntando siempre a la venv

@@ -16,6 +16,7 @@ class Escucha(compiladorListener):
         self.ts = TablaSimbolos()      #singleton de tabla de símbolos
         self.huboErrores = False       #flag para indicar si hubo errores semánticos
         self.indent = 0                #nivel de indentación para mensajes de consola
+        self.errores = []              #lista de errores semánticos para el reporte final
         
         self.sintactico = escucha_sintactico #referencia al otro listener
         
@@ -358,6 +359,11 @@ class Escucha(compiladorListener):
         if not isinstance(simbolo_funcion, Funcion):
             self.registrarError("semantico", f"'{nombre_funcion}' se está llamando como funcion pero es una variable")
             return
+
+        # Validamos cantidad y tipos de argumentos contra la firma guardada de la función.
+        argumentos_llamada = self.extraer_tipos_argumentos_llamada(ctx.argumento())
+        if not self.verificar_argumentos_llamada(simbolo_funcion, argumentos_llamada):
+            return
         
         #existe y es funcion
         simbolo_funcion.setUsado(True)
@@ -395,6 +401,13 @@ class Escucha(compiladorListener):
         #marca error de que a un bool no se le puede asignar un int, pero al tener < el resultado
         #de la operacion deberia ser bool
         nombre_clase = ctx.__class__.__name__
+
+        if "LlamadaContext" in nombre_clase:
+            nombre_funcion = ctx.ID().getText()
+            simbolo_funcion = self.ts.buscarSimbolo(nombre_funcion)
+            if isinstance(simbolo_funcion, Funcion):
+                return simbolo_funcion.getTipoDato()
+            return None
         
         
         if "ExpORContext" in nombre_clase: #OR      expOR : expAND o ;
@@ -408,6 +421,13 @@ class Escucha(compiladorListener):
             if ctx.c() and ctx.c().getChildCount() > 0: return "bool"
         
         #Reglas para factores    
+        #Numeros enteros y flotantes
+        if hasattr(ctx, 'NUMERO') and ctx.NUMERO(): return "int" 
+        if hasattr(ctx, 'DECIMAL') and ctx.DECIMAL(): return "float"
+        #Booleanos literales
+        if hasattr(ctx, 'TRUE') and ctx.TRUE(): return "bool"
+        if hasattr(ctx, 'FALSE') and ctx.FALSE(): return "bool"
+
         # Nodo ID: Se usa una variable
         if hasattr(ctx, 'ID') and ctx.ID():
             nombre = ctx.ID().getText()
@@ -422,13 +442,6 @@ class Escucha(compiladorListener):
             #la variable se marca como usada al ser parte de una expresión
             var.setUsado(True) 
             return var.getTipoDato()
-            
-        #Numeros enteros y flotantes
-        if hasattr(ctx, 'NUMERO') and ctx.NUMERO(): return "int" 
-        if hasattr(ctx, 'DECIMAL') and ctx.DECIMAL(): return "float"
-        #Booleanos literales
-        if hasattr(ctx, 'TRUE') and ctx.TRUE(): return "bool"
-        if hasattr(ctx, 'FALSE') and ctx.FALSE(): return "bool"
         
         #si es un paréntesis, reiniciamos la evaluación en la expresión interna
         if hasattr(ctx, 'opal') and ctx.opal():
@@ -487,8 +500,10 @@ class Escucha(compiladorListener):
         Registra un error semántico y marca el flag de errores.
         El error es impreso con el nivel de indentación actual.
         """
+        mensaje = " " * self.indent + f"[ERROR {tipo.upper()}]: {msj}"
         self.huboErrores = True
-        print(" " * self.indent + f"[ERROR {tipo.upper()}]: {msj}")
+        self.errores.append(mensaje)
+        print(mensaje)
         
     def extraer_argumentos(self, ctx):
         """
@@ -533,6 +548,53 @@ class Escucha(compiladorListener):
             if tipo_proto != tipo_def:
                 return False
           
+        return True
+
+    def extraer_tipos_argumentos_llamada(self, ctx):
+        """
+        Convierte la lista recursiva de argumentos de una llamada en sus tipos.
+        """
+        tipos = []
+        if ctx is None or ctx.getChildCount() == 0:
+            return tipos
+
+        if ctx.opal():
+            tipos.append(self._tipoExp(ctx.opal()))
+
+        if ctx.argumento():
+            tipos.extend(self.extraer_tipos_argumentos_llamada(ctx.argumento()))
+
+        return tipos
+
+    def verificar_argumentos_llamada(self, funcion, tipos_argumentos):
+        """
+        Verifica que una llamada reciba la misma cantidad y tipo de argumentos
+        que la función declarada o definida.
+        """
+        args_funcion = funcion.getListaArgs()
+
+        if len(args_funcion) != len(tipos_argumentos):
+            self.registrarError(
+                "semantico",
+                f"La llamada a '{funcion.nombre}' recibe {len(tipos_argumentos)} argumento(s) pero esperaba {len(args_funcion)}"
+            )
+            return False
+
+        for indice, (arg_funcion, tipo_llamada) in enumerate(zip(args_funcion, tipos_argumentos), start=1):
+            if tipo_llamada is None:
+                self.registrarError(
+                    "semantico",
+                    f"No se pudo determinar el tipo del argumento {indice} en la llamada a '{funcion.nombre}'"
+                )
+                return False
+
+            if arg_funcion['tipo'] != tipo_llamada:
+                self.registrarError(
+                    "semantico",
+                    f"El argumento {indice} de '{funcion.nombre}' debe ser '{arg_funcion['tipo']}' y se recibió '{tipo_llamada}'"
+                )
+                return False
+
         return True
 
     
