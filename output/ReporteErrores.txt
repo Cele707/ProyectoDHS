@@ -1,0 +1,12 @@
+REPORTE DE ERRORES
+====================
+
+[ERROR SINTACTICO] formato incorrecto en la lista de declaración de variables (línea 6)
+[ERROR SINTACTICO] falta una coma entre variables antes de 'e' (línea 7)
+[ERROR SINTACTICO] falta un punto y coma ';' al final de la instrucción (línea 8)
+[ERROR SINTACTICO] falta un paréntesis de cierre ')' antes de '{' (línea 10)
+[ERROR SINTACTICO] falta una llave de cierre '}' (línea 23)
+[ERROR SEMANTICO]: La funcion 'func_no_declarada' no ha sido declarada
+[ERROR SEMANTICO]: La llamada a 'func_param_mal' recibe 1 argumento(s) pero esperaba 2
+[ERROR SEMANTICO]: El argumento 1 de 'func_param_mal' debe ser 'int' y se recibió 'float'
+[ERROR SEMANTICO]: Asignación incompatible: 'g' es int y se intenta asignar float

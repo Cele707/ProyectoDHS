@@ -15,9 +15,12 @@ Ejecucion rapida (Python)
 4. Ejecutar el compilador:
 	.venv/bin/python src/main/python/App.py
 
-Entradas de ejemplo
-- Sin errores: input/entradaSinErrores.txt
-- Con errores: input/entradaConErrores.txt
+Ejecucion directa desde consola
+- Sin errores:
+	.venv/bin/python src/main/python/App.py input/entradaSinErrores.txt
+- Con errores:
+	.venv/bin/python src/main/python/App.py input/entradaConErrores.txt
+
 
 Salida esperada
 - output/CodigoIntermedio.txt
