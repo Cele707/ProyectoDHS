@@ -64,10 +64,13 @@ fragment CARACTER_INTERNO: ~['\\]           // cualquier cosa que no sea ' ni \
                 // ej \n o \' se ponen dos \\ pq eso significa una \ en el codigo
                 ;
 
-ID : (LETRA | '_')(LETRA | DIGITO | '_')* ;
-
-TRUE  : 'TRUE'   ;
+// Las literales booleanas deben permanecer reservadas antes de ID.
+// Si ID aparece antes, TRUE/FALSE se tokenizan como identificadores y luego
+// el análisis semántico los trata como variables.
+TRUE  : 'TRUE'  ;
 FALSE : 'FALSE' ;
+
+ID : (LETRA | '_')(LETRA | DIGITO | '_')* ;
 
 WS : [ \n\r\t] -> skip;
 //OTRO : . ;

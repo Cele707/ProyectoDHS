@@ -10,14 +10,16 @@ int main() {
     if (a == 0 {
         a = 1;
     }
-    
+
     func_no_declarada(1);
-    func_param_mal(1);
-    func_param_mal(1.5, 2);
+    func_param_mal(z);
+    func_param_mal(TRUE, 2.5));
     int g = 10;
     g = g + 2.5;
+
     return 0;
 }
 
 int func_param_mal(int x, int y) {
-    return x + y;
+    return TRUE;
+

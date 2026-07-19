@@ -28,6 +28,15 @@ class Escucha(compiladorListener):
         #bandera especial para manejar dependencias en declaraciones múltiples
         self.leyendoDeclaracion = False
 
+        # Mantiene el contexto de la función actual mientras se analiza el cuerpo.
+        # Esto permite validar el tipo del return contra la firma de la función.
+        self.funcion_actual = None
+        self.tipo_funcion_actual = None
+
+        # Bandera para registrar si la función actual ya tuvo al menos un return.
+        # Esto se usa para exigir que las funciones no void devuelvan algo.
+        self.tiene_return_en_funcion = False
+
     # =============================================================
     # 1. PROGRAMA PRINCIPAL Y BLOQUES
     # =============================================================
@@ -203,6 +212,9 @@ class Escucha(compiladorListener):
         """
         if ctx.ID():
             nombre = ctx.ID().getText()
+            if nombre in ("TRUE", "FALSE"):
+                return
+
             simbolo = self._verificarExistenciaVariable(nombre)
             if simbolo is None:
                 return
@@ -261,6 +273,18 @@ class Escucha(compiladorListener):
         self.en_funcion = True
         self.argumentos_funcion_actual = []
         self.lectura_argumentos = True
+
+        # En el enterFuncion NO es seguro leer ctx.ID() / ctx.tipo() porque el
+        # contexto de la regla todavía está en fase de apertura y esos tokens
+        # no quedan resueltos de forma estable para el listener. Por eso, para
+        # validar el return, vamos a resolver la función desde el contexto
+        # del ancestro cuando realmente llegue el nodo return.
+        self.funcion_actual = None
+        self.tipo_funcion_actual = None
+
+        # Cada nueva función arranca con la bandera de return en False.
+        # Si luego aparece un return, se marca en True y se valida al cierre.
+        self.tiene_return_en_funcion = False
            
     def exitFuncion(self, ctx: compiladorParser.FuncionContext):
         #obtener informacion de la funcion
@@ -310,9 +334,24 @@ class Escucha(compiladorListener):
                 self.ts.addSimbolo(nueva_funcion)    
             print(f"[INFO]: Función '{nombre_funcion}' creada y guardada.")
             
+        # Al cerrar la función, verificamos si una función que no es void
+        # realmente devolvió algo. Si no apareció ninguna sentencia return,
+        # registramos un error semántico.
+        if tipo_retorno and tipo_retorno != "void" and not self.tiene_return_en_funcion:
+            self.registrarError(
+                "semantico",
+                f"La función '{nombre_funcion}' debe retornar un valor de tipo '{tipo_retorno}'"
+            )
+
         #limpiar variables de función
         self.argumentos_funcion_actual = []
         self.lectura_argumentos = False
+
+        # Cuando termina la función, volvemos al estado neutral para no mezclar
+        # el tipo de retorno de una función con la siguiente.
+        self.funcion_actual = None
+        self.tipo_funcion_actual = None
+        self.tiene_return_en_funcion = False
                 
         self.en_funcion = False
         self.ts.delContexto()
@@ -346,6 +385,23 @@ class Escucha(compiladorListener):
         if self.ts.contextos:
             contexto_actual = self.ts.contextos[-1]
     
+    def _obtenerFuncionDesdeContexto(self, ctx):
+        """
+        Recorre el árbol ascendente para encontrar la función contenedora.
+        En ANTLR4 para Python, el puntero del padre se expone como `parentCtx`.
+        Esto permite detectar la función que contiene la sentencia return sin
+        depender de otra estructura auxiliar.
+        """
+        nodo_actual = ctx
+        while nodo_actual is not None:
+            if isinstance(nodo_actual, compiladorParser.FuncionContext):
+                nombre = nodo_actual.ID().getText() if nodo_actual.ID() else None
+                tipo = nodo_actual.tipo().getText() if nodo_actual.tipo() else "void"
+                return nombre, tipo
+            nodo_actual = getattr(nodo_actual, 'parentCtx', None)
+
+        return None, None
+
     def exitLlamada(self, ctx: compiladorParser.LlamadaContext):
         nombre_funcion = ctx.ID().getText()
         simbolo_funcion = self.ts.buscarSimbolo(nombre_funcion)
@@ -368,6 +424,70 @@ class Escucha(compiladorListener):
         #existe y es funcion
         simbolo_funcion.setUsado(True)
         print(f"[INFO]: Llamada de función '{nombre_funcion}' detectada.")
+
+    def exitIreturn(self, ctx: compiladorParser.IreturnContext):
+        """
+        Valida el return de una función con su tipo de retorno.
+
+        La regla de compatibilidad es simple:
+        - si la función es void, el return no debe devolver una expresión
+        - si la función devuelve algo, el return debe devolver ese mismo tipo
+          o un tipo compatible por coerción (por ejemplo int -> float)
+        """
+        # Recorremos hacia arriba en el árbol hasta encontrar la función que
+        # contiene esta sentencia return. Así evitamos depender de un contexto
+        # que todavía no quedó estable en enterFuncion.
+        self.funcion_actual, self.tipo_funcion_actual = self._obtenerFuncionDesdeContexto(ctx)
+
+        # Si no estamos dentro de ninguna función, no hay nada que validar.
+        if not self.funcion_actual or not self.tipo_funcion_actual:
+            return
+
+        # Si aparece un return dentro de la función actual, marcamos esa bandera.
+        # Esto permite luego exigir que una función no void retorne algo al cierre.
+        self.tiene_return_en_funcion = True
+
+        # La gramática actual exige una expresión en return, pero dejamos el
+        # chequeo robusto para cualquier caso en el que la expresión no exista.
+        valor_ctx = ctx.opal() if ctx.opal() else None
+
+        # Si la función es void, cualquier expresión en return es inválida.
+        if self.tipo_funcion_actual == "void":
+            if valor_ctx is not None:
+                self.registrarError(
+                    "semantico",
+                    f"La función '{self.funcion_actual}' es void y no puede retornar un valor"
+                )
+            return
+
+        # Si la función devuelve un tipo y el return no tiene valor, hay error.
+        if valor_ctx is None:
+            self.registrarError(
+                "semantico",
+                f"La función '{self.funcion_actual}' debe retornar un valor de tipo '{self.tipo_funcion_actual}'"
+            )
+            return
+
+        tipo_valor = self._tipoExp(valor_ctx)
+        if tipo_valor is None:
+            self.registrarError(
+                "semantico",
+                f"No se pudo determinar el tipo de la expresión retornada en '{self.funcion_actual}'"
+            )
+            return
+
+        # Permitimos coerción int -> float, igual que en otras verificaciones del
+        # compilador, pero cualquier otro tipo distinto debe reportarse.
+        if self.tipo_funcion_actual == tipo_valor:
+            return
+
+        if self.tipo_funcion_actual == "float" and tipo_valor == "int":
+            return
+
+        self.registrarError(
+            "semantico",
+            f"Return incompatible: la función '{self.funcion_actual}' devuelve '{self.tipo_funcion_actual}' pero se intenta retornar '{tipo_valor}'"
+        )
     
     # =============================================================
     # CONTEXTOS DE BLOQUES (if, else, for, while)
@@ -391,9 +511,17 @@ class Escucha(compiladorListener):
     #aca juntamos metodos que utilizan los enter/exit que ayudan a que quede un poco mas prolijo el codigo
     def _tipoExp(self, ctx):
         """Función auxiliar para determinar el tipo de dato resultante de una expresión (recursiva)."""
-      
+
+        # Importante: las literales booleanas TRUE/FALSE deben seguir tratándose
+        # como tokens reservados en el lexer. Si el lexer las devuelve como ID,
+        # luego el análisis semántico las interpreta como variables y se pierde el
+        # contexto correcto del tipo booleano.
         if ctx is None:
             return None
+
+        texto = ctx.getText() if hasattr(ctx, 'getText') else None
+        if texto in ("TRUE", "FALSE"):
+            return "bool"
         
         #esto de aca está para arreglar el erro de que si tenemos
         #int x = 10, y = 20
@@ -431,6 +559,9 @@ class Escucha(compiladorListener):
         # Nodo ID: Se usa una variable
         if hasattr(ctx, 'ID') and ctx.ID():
             nombre = ctx.ID().getText()
+            if nombre in ("TRUE", "FALSE"):
+                return "bool"
+
             var = self._verificarExistenciaVariable(nombre)
             if var is None:
                 return None
@@ -486,6 +617,9 @@ class Escucha(compiladorListener):
         Busca un símbolo en la TS. Si no existe y NO estamos en una declaración,
         lanza error de 'no declarada'.
         """
+        if nombre in ("TRUE", "FALSE"):
+            return Variable(nombre, "bool", inicializado=True, declarado=True)
+
         simbolo = self.ts.buscarSimbolo(nombre)
 
         #si el símbolo NO existe y NO estamos leyendo una declaración
@@ -501,6 +635,10 @@ class Escucha(compiladorListener):
         El error es impreso con el nivel de indentación actual.
         """
         mensaje = " " * self.indent + f"[ERROR {tipo.upper()}]: {msj}"
+
+        if mensaje in self.errores:
+            return
+
         self.huboErrores = True
         self.errores.append(mensaje)
         print(mensaje)
@@ -568,33 +706,49 @@ class Escucha(compiladorListener):
 
     def verificar_argumentos_llamada(self, funcion, tipos_argumentos):
         """
-        Verifica que una llamada reciba la misma cantidad y tipo de argumentos
-        que la función declarada o definida.
+        Verifica cantidad y tipos de argumentos de una llamada.
+
+        La idea es reportar todos los problemas observables en la llamada en lugar
+        de cortar la validación al primer conflicto. Así se obtiene un diagnóstico
+        más completo para el usuario y el compilador no deja de chequeando el resto.
         """
         args_funcion = funcion.getListaArgs()
+        hubo_error = False
 
+        # Si la cantidad no coincide, registramos el problema principal y seguimos
+        # revisando los argumentos que sí pudieron inferirse para reportar los
+        # fallos de tipo que aún sean visibles.
         if len(args_funcion) != len(tipos_argumentos):
             self.registrarError(
                 "semantico",
                 f"La llamada a '{funcion.nombre}' recibe {len(tipos_argumentos)} argumento(s) pero esperaba {len(args_funcion)}"
             )
-            return False
+            hubo_error = True
 
-        for indice, (arg_funcion, tipo_llamada) in enumerate(zip(args_funcion, tipos_argumentos), start=1):
+        # Recorremos la firma de la función y, si hay un argumento presente en la
+        # llamada, verificamos su tipo sin cancelar el análisis del resto.
+        for indice, arg_funcion in enumerate(args_funcion, start=1):
+            if indice > len(tipos_argumentos):
+                break
+
+            tipo_llamada = tipos_argumentos[indice - 1]
             if tipo_llamada is None:
                 self.registrarError(
                     "semantico",
                     f"No se pudo determinar el tipo del argumento {indice} en la llamada a '{funcion.nombre}'"
                 )
-                return False
+                hubo_error = True
+                continue
 
             if arg_funcion['tipo'] != tipo_llamada:
                 self.registrarError(
                     "semantico",
                     f"El argumento {indice} de '{funcion.nombre}' debe ser '{arg_funcion['tipo']}' y se recibió '{tipo_llamada}'"
                 )
-                return False
+                hubo_error = True
 
-        return True
+        # El valor de retorno sigue siendo una señal de consistencia para que la
+        # llamada no se marque como válida si hubo al menos un conflicto.
+        return not hubo_error
 
     
