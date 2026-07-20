@@ -2,6 +2,7 @@ int func_no_usada(int x);
 int func_param_mal(int x, int y);
 
 int main() {
+    int no_usada = 3;
     int a = 5;
     int b = a + );
     int c, d e;

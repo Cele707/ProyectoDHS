@@ -57,6 +57,8 @@ class Escucha(compiladorListener):
                         hay_advertencias = True
                     print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada")
 
+        self._verificarFuncionesNoUsadas()
+
         #para marcar main como usada
         for contexto in self.ts.historialCTX:
             for id in contexto.simbolos.values():
@@ -611,6 +613,20 @@ class Escucha(compiladorListener):
         for nombre, var in contexto_actual.simbolos.items():
             if isinstance(var, Variable) and not var.getUsado():
                 print(" " * self.indent + f"[ADVERTENCIA]: Variable '{nombre}' declarada pero no usada en contexto local")
+
+    def _verificarFuncionesNoUsadas(self):
+        """
+        Recorre la tabla de símbolos y muestra advertencias para funciones
+        declaradas pero nunca llamadas.
+        """
+        hay_advertencias_funciones = False
+        for contexto in self.ts.contextos:
+            for nombre, simbolo in contexto.simbolos.items():
+                if isinstance(simbolo, Funcion) and not simbolo.getUsado() and nombre != "main":
+                    if not hay_advertencias_funciones:
+                        print("\n--- ADVERTENCIA ---")
+                        hay_advertencias_funciones = True
+                    print(" " * self.indent + f"[ADVERTENCIA]: Función '{nombre}' declarada pero no usada")
 
     def _verificarExistenciaVariable(self, nombre):
         """

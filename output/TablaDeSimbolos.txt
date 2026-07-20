@@ -1,5 +1,0 @@
-
---- Contexto #0 (nivel 0) ---
-Funcion                        Variable             Tipo       Inicializado Usado 
--------------------------------------------------------------------------------------
--                              x                    int        True         False 
