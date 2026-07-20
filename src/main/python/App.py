@@ -25,8 +25,8 @@ def escribir_reporte_errores(errores_sintacticos, errores_semanticos):
             f.write(error + "\n")
 
 def main(argv):
-    #archivo = "input/entradaConErrores.txt"
-    archivo = "input/entradaSinErrores.txt"
+    archivo = "input/entradaConErrores.txt"
+    #archivo = "input/entradaSinErrores.txt"
     if len(argv) > 1 :
         archivo = argv[1]
     input = FileStream(archivo)
